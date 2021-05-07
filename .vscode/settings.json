@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "type_traits": "c",
+        "hash_tables.h": "c"
+    }
+}
