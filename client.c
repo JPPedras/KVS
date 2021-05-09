@@ -44,7 +44,7 @@ int main() {
     char *key = (char *)malloc(sizeof(char) * MAX_LENGTH);
     char *value = (char *)malloc(sizeof(char) * MAX_LENGTH);
 
-    strcpy(key, "nome");
+    /*strcpy(key, "nome");
     strcpy(value, "goncalo");
     flag = put_value(key, value);
 
@@ -70,6 +70,7 @@ int main() {
     flag = get_value(key, &value);
     printf("apelido: %s\n", value);
 
-    flag = close_connection();
+    flag = close_connection();*/
+    getchar();
     return 0;
 }
