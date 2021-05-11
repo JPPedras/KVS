@@ -28,15 +28,27 @@ Ht_item* create_item(char* key, char* value) {
     return item;
 }
 
-Group* create_table(int size) {
+Table* create_table(int size) {
     // Creates a new Group
-    Group* table = (Group*)malloc(sizeof(Group));
+    Table* table = (Table*)malloc(sizeof(Table));
     table->size = size;
     table->count = 0;
     table->items = (Ht_item**)calloc(table->size, sizeof(Ht_item*));
     for (int i = 0; i < table->size; i++) table->items[i] = NULL;
-
     return table;
+}
+
+Msg* create_msg(char* string1, char* string2, int flag) {
+    Msg* new_msg = malloc(sizeof(Msg));
+    new_msg->string1 = malloc(MAX_LENGTH * sizeof(char));
+    new_msg->string2 = malloc(MAX_LENGTH * sizeof(char));
+    strcpy(new_msg->string1, string1);
+    if (string2 != NULL) {
+        strcpy(new_msg->string2, string2);
+    }
+    new_msg->flag = flag;
+
+    return new_msg;
 }
 
 void free_item(Ht_item* item) {
@@ -46,7 +58,7 @@ void free_item(Ht_item* item) {
     free(item);
 }
 
-void free_table(Group* table) {
+void free_table(Table* table) {
     // Frees the table
     for (int i = 0; i < table->size; i++) {
         Ht_item* item = table->items[i];
@@ -57,9 +69,9 @@ void free_table(Group* table) {
     free(table);
 }
 
-void handle_collision(Group* table, unsigned long index, Ht_item* item) {}
+void handle_collision(Table* table, unsigned long index, Ht_item* item) {}
 
-void ht_insert(Group* table, char* key, char* value) {
+void ht_insert(Table* table, char* key, char* value) {
     // Create the item
     Ht_item* item = create_item(key, value);
 
@@ -99,7 +111,7 @@ void ht_insert(Group* table, char* key, char* value) {
     }
 }
 
-char* ht_search(Group* table, char* key) {
+char* ht_search(Table* table, char* key) {
     // Searches the key in the hashtable
     // and returns NULL if it doesn't exist
     int index = hash_function(key);
@@ -112,7 +124,7 @@ char* ht_search(Group* table, char* key) {
     return NULL;
 }
 
-void delete_item(Group* table, char* key) {
+void delete_item(Table* table, char* key) {
     int index = hash_function(key);
     Ht_item* item = table->items[index];
 

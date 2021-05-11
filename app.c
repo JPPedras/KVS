@@ -40,11 +40,11 @@ void *recv_prime(void *arg) {
 }
 
 int main() {
-    int flag = establish_connection("123", "password");
+    int flag = establish_connection("111", "password");
     char *key = (char *)malloc(sizeof(char) * MAX_LENGTH);
     char *value = (char *)malloc(sizeof(char) * MAX_LENGTH);
 
-    /*strcpy(key, "nome");
+    strcpy(key, "nome");
     strcpy(value, "goncalo");
     flag = put_value(key, value);
 
@@ -57,20 +57,7 @@ int main() {
     flag = get_value(key, &value);
     printf("apelido: %s\n", value);
 
-    flag = delete_value(key);
-
-    strcpy(key, "nome");
-    strcpy(value, "random");
-    flag = get_value(key, &value);
-    printf("nome: %s\n", value);
-
-    printf("vai dar erro agora\n");
-    strcpy(key, "apelido");
-    strcpy(value, "random");
-    flag = get_value(key, &value);
-    printf("apelido: %s\n", value);
-
-    flag = close_connection();*/
+    flag = close_connection();
     getchar();
     return 0;
 }
