@@ -23,7 +23,7 @@ int main() {
     auth_server_addr.sin_port = htons(8080);
     // auth_server_addr.sin_addr.s_addr = INADDR_ANY;
     // printf("%s\n", inet_addr(INADDR_ANY));
-    char group_id[MAX_LENGTH];
+    char *group_id = malloc(MAX_LENGTH * sizeof(char));
     char *secret = malloc(MAX_LENGTH * sizeof(char));
 
     auth_server_sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -67,10 +67,17 @@ int main() {
                 break;
             // create group
             case 1:
-                sprintf(secret, "%d", rand() % 100000);
-                ht_insert(table, group_id, secret);
-                sendto(auth_server_sock, secret, sizeof(secret), MSG_CONFIRM,
-                       (struct sockaddr *)&local_server_addr, local_addr_size);
+                // sprintf(secret, "%d", rand() % 100000);
+                if (ht_search(table, group_id) == NULL) {
+                    sprintf(secret, "%s", "password");
+                    ht_insert(table, group_id, secret);
+                    sendto(auth_server_sock, secret, sizeof(secret),
+                           MSG_CONFIRM, (struct sockaddr *)&local_server_addr,
+                           local_addr_size);
+                }
+                else{
+
+                }
 
                 break;
             // delete group
@@ -81,6 +88,7 @@ int main() {
                 break;
             // get secret
             case 3:
+                // printf("entrou no search\n");
                 if (ht_search(table, group_id) != NULL) {
                     secret = ht_search(table, group_id);
                 }

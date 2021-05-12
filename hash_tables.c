@@ -69,7 +69,9 @@ void free_table(Table* table) {
     free(table);
 }
 
-void handle_collision(Table* table, unsigned long index, Ht_item* item) {}
+void handle_collision(Table* table, unsigned long index, Ht_item* item) {
+    printf("collision?!\n");
+}
 
 void ht_insert(Table* table, char* key, char* value) {
     // Create the item
@@ -134,4 +136,5 @@ void delete_item(Table* table, char* key) {
             free_item(item);
         }
     }
+    table->count--;
 }

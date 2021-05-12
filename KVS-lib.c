@@ -43,10 +43,7 @@ int establish_connection(char* group_id, char* secret) {
     }
     // sleep(1);
     send(app_sock, group_id, sizeof(group_id), 0);
-
-    n_bytes = recv(app_sock, msg, sizeof(msg), 0);
-
-    printf("%s\n", msg);
+    send(app_sock, secret, sizeof(secret), 0);
 
     return 0;
 }

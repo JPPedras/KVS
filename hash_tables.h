@@ -3,6 +3,7 @@
 
 typedef struct App {
     int app_sock;
+    int pid;
     int conected;
     struct App* next;
 } App;
