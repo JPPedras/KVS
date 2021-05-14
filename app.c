@@ -57,7 +57,7 @@ int main() {
     flag = get_value(key, &value);
     printf("apelido: %s\n", value);
 
-    flag = close_connection();
+    // flag = close_connection();
     getchar();
     return 0;
 }

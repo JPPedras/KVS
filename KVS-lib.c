@@ -16,7 +16,7 @@ int establish_connection(char* group_id, char* secret) {
     int app_addr_size = sizeof(app_sock_addr);
     struct sockaddr_un local_server_sock_addr;
     int server_addr_size = sizeof(local_server_sock_addr);
-    int n_bytes;
+    int n_bytes, flag;
     char msg[100];
 
     app_sock = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -71,5 +71,6 @@ int delete_value(char* key) {
 int close_connection() {
     int flag = 3;
     send(app_sock, &flag, sizeof(int), 0);
+    close(app_sock);
     return 0;
 }

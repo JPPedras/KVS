@@ -1,13 +1,3 @@
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/un.h>
-#include <unistd.h>
-
 #include "hash_tables.h"
 
 #define MAX_LENGTH 20
@@ -74,9 +64,7 @@ int main() {
                     sendto(auth_server_sock, secret, sizeof(secret),
                            MSG_CONFIRM, (struct sockaddr *)&local_server_addr,
                            local_addr_size);
-                }
-                else{
-
+                } else {
                 }
 
                 break;

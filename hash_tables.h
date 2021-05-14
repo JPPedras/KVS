@@ -1,9 +1,21 @@
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <time.h>
+#include <unistd.h>
+
 #define CAPACITY 50000
 #define MAX_LENGTH 20
 
 typedef struct App {
     int app_sock;
     int pid;
+    time_t t[2];
     int conected;
     struct App* next;
 } App;

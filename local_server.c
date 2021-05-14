@@ -1,13 +1,3 @@
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/un.h>
-#include <unistd.h>
-
 #include "hash_tables.h"
 
 #define LOCAL_SERVER_ADDR "/tmp/local_server_address"
@@ -32,6 +22,7 @@ void *com_thread(void *arg) {
     char *key = (char *)malloc(sizeof(char) * MAX_LENGTH);
     char *value = (char *)malloc(sizeof(char) * MAX_LENGTH);
     Group *group = group_head;
+    time_t t;
 
     for (i = 0; i < *pos; i++) {
         group = group->next;
@@ -41,6 +32,9 @@ void *com_thread(void *arg) {
 
     while (1) {
         n_bytes = recv(app_sock, &flag, sizeof(int), 0);
+        if (n_bytes == 0) {
+            flag = 3;
+        }
         // printf("oi\n");
         // printf("flag: %d\n", flag);
         switch (flag) {
@@ -63,6 +57,9 @@ void *com_thread(void *arg) {
                 break;
             case 3:
                 app->conected = 0;
+                time(&t);
+                app->t[1] = t;
+                close(app_sock);
                 pthread_exit(NULL);
                 break;
         }
@@ -86,10 +83,12 @@ void *accept_thread(void *arg) {
     inet_aton("127.0.0.1", &auth_server_addr.sin_addr);
     auth_server_addr.sin_port = htons(8080);
     Group *aux_group;
+    time_t t;
 
     while (1) {
         app_sock = accept(server_sock[0], (struct sockaddr *)&app_addr,
                           &app_addr_size);
+
         n_bytes = recv(app_sock, group_id, sizeof(group_id), 0);
         n_bytes = recv(app_sock, secret, sizeof(secret), 0);
         // printf("received: %s and %s\n", group_id, secret);
@@ -122,6 +121,8 @@ void *accept_thread(void *arg) {
         new_app->next = aux_group->apps_head;
         aux_group->apps_head = new_app;
         aux_pos = pos;
+        time(&t);
+        new_app->t[0] = t;
         pthread_create(&thread_com[i], NULL, com_thread, &aux_pos);
         i++;
         pos = 0;
@@ -131,7 +132,7 @@ void *accept_thread(void *arg) {
 int main() {
     char *command = (char *)malloc(MAX_LENGTH * sizeof(char));
     char *secret = (char *)malloc(MAX_LENGTH * sizeof(char));
-    int server_sock[2], recv_sock[10], i = 0, flag;
+    int server_sock[2], i = 0, flag;
     struct sockaddr_un un_server_sock_addr;
     struct sockaddr_in in_server_sock_addr;
     struct sockaddr_in auth_server_addr;
@@ -235,20 +236,24 @@ int main() {
                    group->table->count);
         } else if (strcmp(token, "s") == 0) {
             Group *group = group_head;
+            token = strtok(NULL, " ");
+            token[strcspn(token, "\n")] = 0;
             while (strcmp(group->group_id, token) != 0) {
                 group = group->next;
             }
             App *app = group->apps_head;
             printf("----------------\nList of apps\n");
             while (app != NULL) {
+                printf("Process %d:\n", app->pid);
+
+                printf("  -> Conected on %s", ctime(&app->t[0]));
                 if (app->conected == 0) {
-                    printf("process %d conected for x seconds", app->pid);
+                    printf("  -> Disconected on %s", ctime(&app->t[1]));
                 }
-                printf("process %d is conected", app->pid);
+
                 app = app->next;
             }
             printf("-------------------\n");
-
         } else {
             printf("\nInvalid command\n");
         }
