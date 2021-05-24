@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
@@ -10,7 +11,7 @@
 #include <unistd.h>
 
 #define CAPACITY 50000
-#define MAX_LENGTH 20
+#define MAX_LENGTH 512
 
 typedef struct App {
     int app_sock;
@@ -53,4 +54,4 @@ void free_table(Table* table);
 void handle_collision(Table* table, unsigned long index, Ht_item* item);
 void ht_insert(Table* table, char* key, char* value);
 char* ht_search(Table* table, char* key);
-void delete_item(Table* table, char* key);
+char* delete_item(Table* table, char* key);

@@ -1,6 +1,6 @@
 #include "hash_tables.h"
 
-#define MAX_LENGTH 20
+#define MAX_LENGTH 512
 
 int main() {
     int auth_server_sock, i = 0, n_bytes;
@@ -15,6 +15,7 @@ int main() {
     // printf("%s\n", inet_addr(INADDR_ANY));
     char *group_id = malloc(MAX_LENGTH * sizeof(char));
     char *secret = malloc(MAX_LENGTH * sizeof(char));
+    char *msg = malloc(MAX_LENGTH * sizeof(char));
 
     auth_server_sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (auth_server_sock == -1) {
@@ -33,11 +34,16 @@ int main() {
 
     while (1) {
         n_bytes =
-            recvfrom(auth_server_sock, &flag, sizeof(flag), MSG_WAITALL,
+            recvfrom(auth_server_sock, msg, MAX_LENGTH, MSG_WAITALL,
                      (struct sockaddr *)&local_server_addr, &local_addr_size);
-        n_bytes =
-            recvfrom(auth_server_sock, group_id, sizeof(group_id), MSG_WAITALL,
-                     (struct sockaddr *)&local_server_addr, &local_addr_size);
+        char *aux = msg;
+        printf("msg: %s\n", msg);
+        flag = atoi(aux);
+        printf("flag: %d\n", flag);
+        aux = strchr(aux, '\0');
+        aux++;
+        printf("group_id: %s\n", aux);
+
         switch (flag) {
             // connect
             case 0:

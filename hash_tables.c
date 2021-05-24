@@ -126,7 +126,7 @@ char* ht_search(Table* table, char* key) {
     return NULL;
 }
 
-void delete_item(Table* table, char* key) {
+char* delete_item(Table* table, char* key) {
     int index = hash_function(key);
     Ht_item* item = table->items[index];
 
@@ -135,6 +135,8 @@ void delete_item(Table* table, char* key) {
         if (strcmp(item->key, key) == 0) {
             free_item(item);
         }
+        table->count--;
+    } else {
+        return NULL;
     }
-    table->count--;
 }

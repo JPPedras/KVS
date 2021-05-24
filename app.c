@@ -11,7 +11,7 @@
 #include "lib.h"
 
 #define SERVER_ADDR "/tmp/server_address"
-#define MAX_LENGTH 20
+#define MAX_LENGTH 512
 
 void *send_num(void *arg) {
     int *client_sock = (int *)arg;
@@ -57,7 +57,7 @@ int main() {
     flag = get_value(key, &value);
     printf("apelido: %s\n", value);
 
-    // flag = close_connection();
+    flag = close_connection();
     getchar();
     return 0;
 }

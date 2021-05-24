@@ -1,7 +1,8 @@
 #include "hash_tables.h"
+#include "lib.h"
 
 #define LOCAL_SERVER_ADDR "/tmp/local_server_address"
-#define MAX_LENGTH 20
+#define MAX_LENGTH 512
 
 Group *group_head = NULL;
 
@@ -16,11 +17,10 @@ void create_group(char *group_id) {
 }
 
 void *com_thread(void *arg) {
-    int n_bytes, k, flag = 0, i, app_sock;
+    int n_bytes, k, flag = 0, i, app_sock, size;
     int *pos = (int *)arg;
-    char *value_ = (char *)malloc(sizeof(char) * MAX_LENGTH);
+    char *value;
     char *key = (char *)malloc(sizeof(char) * MAX_LENGTH);
-    char *value = (char *)malloc(sizeof(char) * MAX_LENGTH);
     Group *group = group_head;
     time_t t;
 
@@ -39,21 +39,37 @@ void *com_thread(void *arg) {
         // printf("flag: %d\n", flag);
         switch (flag) {
             case 0:
-                n_bytes = recv(app_sock, key, sizeof(key), 0);
-                n_bytes = recv(app_sock, value, sizeof(value), 0);
+                n_bytes = recv(app_sock, key, MAX_LENGTH, 0);
+                n_bytes = recv(app_sock, &size, sizeof(int), 0);
+                value = realloc(value, size * sizeof(char));
+                n_bytes = recv(app_sock, value, size * sizeof(char), 0);
                 ht_insert(group->table, key, value);
                 // printf("%s-%s inserted\n", key, value);
                 break;
             case 1:
-                n_bytes = recv(app_sock, key, sizeof(key), 0);
+                n_bytes = recv(app_sock, key, MAX_LENGTH, 0);
                 // printf("vai entrar no search\n");
-                value_ = ht_search(group->table, key);
-                // printf("return: %s\n", value_);
-                send(app_sock, value_, sizeof(value), 0);
+                value = ht_search(group->table, key);
+                if (value != NULL) {
+                    flag = 1;
+                    size = strlen(value) + 1;
+                    send(app_sock, &flag, sizeof(int), 0);
+                    send(app_sock, &size, sizeof(int), 0);
+                    send(app_sock, value, size, 0);
+                } else {
+                    flag = -1;
+                    send(app_sock, &flag, sizeof(int), 0);
+                }
                 break;
             case 2:
-                n_bytes = recv(app_sock, key, sizeof(key), 0);
-                delete_item(group->table, key);
+                n_bytes = recv(app_sock, key, MAX_LENGTH, 0);
+                if (delete_item(group->table, key) != NULL) {
+                    flag = 1;
+                    send(app_sock, &flag, sizeof(int), 0);
+                } else {
+                    flag = -1;
+                    send(app_sock, &flag, sizeof(int), 0);
+                }
                 break;
             case 3:
                 app->conected = 0;
@@ -74,7 +90,6 @@ void *accept_thread(void *arg) {
     char *group_id = malloc(MAX_LENGTH * sizeof(char));
     char *secret = malloc(MAX_LENGTH * sizeof(char));
     char confirmation[MAX_LENGTH];
-    char msg[100];
     struct sockaddr_in auth_server_addr;
     struct sockaddr_un app_addr;
     int app_addr_size = sizeof(app_addr);
@@ -84,23 +99,25 @@ void *accept_thread(void *arg) {
     auth_server_addr.sin_port = htons(8080);
     Group *aux_group;
     time_t t;
+    char *msg = malloc(MAX_LENGTH * sizeof(char));
 
     while (1) {
         app_sock = accept(server_sock[0], (struct sockaddr *)&app_addr,
                           &app_addr_size);
 
         n_bytes = recv(app_sock, group_id, sizeof(group_id), 0);
-        n_bytes = recv(app_sock, secret, sizeof(secret), 0);
+        n_bytes = recv(app_sock, secret, sizeof(group_id), 0);
         // printf("received: %s and %s\n", group_id, secret);
-        sendto(server_sock[1], &flag, sizeof(flag), MSG_CONFIRM,
-               (const struct sockaddr *)&auth_server_addr, auth_addr_size);
-        sendto(server_sock[1], group_id, sizeof(group_id), MSG_CONFIRM,
-               (const struct sockaddr *)&auth_server_addr, auth_addr_size);
-        sendto(server_sock[1], secret, sizeof(secret), MSG_CONFIRM,
+        sprintf(msg, "0%s%s%s%s", "\0", group_id, "\0", secret);
+        sendto(server_sock[1], msg, MAX_LENGTH, MSG_CONFIRM,
                (const struct sockaddr *)&auth_server_addr, auth_addr_size);
         n_bytes =
             recvfrom(server_sock[1], &flag, sizeof(flag), 0,
                      (struct sockaddr *)&auth_server_addr, &auth_addr_size);
+        send(app_sock, &flag, sizeof(int), 0);
+        if (flag != 1) {
+            continue;
+        }
         // n_bytes = recv(clients[i], group_id, sizeof(group_id), 0);
         // if authorized
         int pos = 0;
@@ -132,6 +149,7 @@ void *accept_thread(void *arg) {
 int main() {
     char *command = (char *)malloc(MAX_LENGTH * sizeof(char));
     char *secret = (char *)malloc(MAX_LENGTH * sizeof(char));
+    char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
     int server_sock[2], i = 0, flag;
     struct sockaddr_un un_server_sock_addr;
     struct sockaddr_in in_server_sock_addr;
@@ -189,28 +207,31 @@ int main() {
         fgets(command, MAX_LENGTH, stdin);
         char *token = strtok(command, " ");
         if (strcmp(token, "c") == 0) {
-            flag = 1;
             token = strtok(NULL, " ");
             token[strcspn(token, "\n")] = 0;
-            sendto(server_sock[1], &flag, sizeof(flag), MSG_CONFIRM,
-                   (const struct sockaddr *)&auth_server_addr, auth_addr_size);
-            sendto(server_sock[1], token, sizeof(token), MSG_CONFIRM,
+            sprintf(msg, "1%c%s%c", '\0', token, '\0');
+            sendto(server_sock[1], msg, MAX_LENGTH, MSG_CONFIRM,
                    (const struct sockaddr *)&auth_server_addr, auth_addr_size);
             n_bytes =
-                recvfrom(server_sock[1], secret, sizeof(secret), MSG_WAITALL,
+                recvfrom(server_sock[1], secret, MAX_LENGTH, MSG_WAITALL,
                          (struct sockaddr *)&auth_server_addr, &auth_addr_size);
-
-            create_group(token);
-            printf("\nCreated group: %s\n", token);
-            printf("Group secret: %s\n-----------------------\n", secret);
+            if (secret != NULL) {
+                create_group(token);
+                printf("\nCreated group: %s\n", token);
+                printf("Group secret: %s\n-----------------------\n", secret);
+            } else {
+                printf("\nGroup %s already exists\n----------------------\n",
+                       token);
+            }
         } else if (strcmp(token, "d") == 0) {
-            flag = 2;
             token = strtok(NULL, " ");
             token[strcspn(token, "\n")] = 0;
-            sendto(server_sock[1], &flag, sizeof(flag), MSG_CONFIRM,
+            sprintf(msg, "2%s%s", "\0", token);
+            sendto(server_sock[1], msg, MAX_LENGTH, MSG_CONFIRM,
                    (const struct sockaddr *)&auth_server_addr, auth_addr_size);
-            sendto(server_sock[1], token, sizeof(token), MSG_CONFIRM,
-                   (const struct sockaddr *)&auth_server_addr, auth_addr_size);
+            n_bytes =
+                recvfrom(server_sock[1], msg, MAX_LENGTH, MSG_WAITALL,
+                         (struct sockaddr *)&auth_server_addr, &auth_addr_size);
 
         } else if (strcmp(token, "i") == 0) {
             // printf("alo?\n");
