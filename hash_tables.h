@@ -14,7 +14,7 @@
 #define MAX_LENGTH 512
 
 typedef struct App {
-    int app_sock;
+    int app_sock[2];
     int pid;
     time_t t[2];
     int conected;
@@ -22,9 +22,16 @@ typedef struct App {
 } App;
 
 typedef struct Ht_item {
+    int* mon;
+    int count;
     char* key;
     char* value;
 } Ht_item;
+
+typedef struct Msg {
+    char* key;
+    int index[2];
+} Msg;
 
 typedef struct Table {
     Ht_item** items;
@@ -34,24 +41,21 @@ typedef struct Table {
 
 typedef struct Group {
     char* group_id;
+    int active;
+    pthread_rwlock_t rwlock;
     struct Table* table;
     struct App* apps_head;
     struct Group* next;
 } Group;
 
-typedef struct Msg {
-    char* string1;
-    char* string2;
-    int flag;
-} Msg;
-
 unsigned long hash_function(char* key);
-Ht_item* create_item(char* key, char* value);
+Ht_item* create_item(char* key, char* val);
 Table* create_table(int size);
-Msg* create_msg(char* string1, char* string2, int flag);
 void free_item(Ht_item* item);
 void free_table(Table* table);
 void handle_collision(Table* table, unsigned long index, Ht_item* item);
-void ht_insert(Table* table, char* key, char* value);
+void ht_insert(Group* group, char* key, char* value);
 char* ht_search(Table* table, char* key);
-char* delete_item(Table* table, char* key);
+void delete_item(Table* table, char* key);
+Msg* create_msg(char* key, int index1, int index2);
+void add_monitor(Table* table, char* key, int pid);
