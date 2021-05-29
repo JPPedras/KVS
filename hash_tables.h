@@ -22,10 +22,10 @@ typedef struct App {
 } App;
 
 typedef struct Ht_item {
-    int* mon;
-    int count;
     char* key;
     char* value;
+    int* mon;
+    int count;
 } Ht_item;
 
 typedef struct Msg {

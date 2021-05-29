@@ -19,18 +19,22 @@ unsigned long hash_function(char* key) {
 
 Ht_item* create_item(char* key, char* value) {
     // Creates a pointer to a new hash table item
-
     Ht_item* item = malloc(sizeof(Ht_item));
-    item->value = (char*)realloc(item->value, (strlen(key) + 1) * sizeof(char));
+    printf("value: %s\n", value);
+    printf("value len1: %ld\n", strlen(value));
+    item->value =
+        (char*)realloc(item->value, (strlen(value) + 1) * sizeof(char));
     if (item->value == NULL) {
         printf("erro\n");
     }
-    // printf("passou malloc1\n");
-    item->key = (char*)realloc(item->key, (strlen(value) + 1) * sizeof(char));
+    printf("value len2: %ld\n", strlen(value));
+
+    item->key = (char*)realloc(item->key, (strlen(key) + 1) * sizeof(char));
+    perror("erro:");
     // item->value=NULL;
     // printf("len value:%ld\n", strlen(value));
 
-    // printf("passou malloc2\n");
+    printf("passou malloc2\n");
     strcpy(item->key, key);
     strcpy(item->value, value);
     item->count = 0;
@@ -141,6 +145,7 @@ void ht_insert(Group* group, char* key, char* value) {
 char* ht_search(Table* table, char* key) {
     // Searches the key in the hashtable
     // and returns NULL if it doesn't exist
+    // printf("oops1\n");
     int index = hash_function(key);
     Ht_item* item = table->items[index];
 
@@ -175,9 +180,8 @@ void delete_item(Table* table, char* key) {
     // Ensure that we move to a non NULL item
 
     if (item != NULL) {
-        printf("deleting %s\n", key);
         if (strcmp(item->key, key) == 0) {
-            table->items[index] = NULL;
+            // table->items[index] = NULL;
             free_item(item);
             table->count--;
 

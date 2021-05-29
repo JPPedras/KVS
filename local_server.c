@@ -76,8 +76,6 @@ void *com_thread(void *arg) {
             flag2 = 1;
             send(app->app_sock[0], &flag2, sizeof(int), 0);
         }
-        // printf("oi\n");
-        // printf("flag: %d\n", flag);
         switch (flag) {
             // put_value
             case 0:
@@ -87,13 +85,17 @@ void *com_thread(void *arg) {
                 n_bytes = recv(app->app_sock[0], value, size * sizeof(char), 0);
                 // printf("inserting pair: %s-%s\n", key, value);
                 s = pthread_rwlock_wrlock(&group->rwlock);
+
                 ht_insert(group, key, value);
                 s = pthread_rwlock_unlock(&group->rwlock);
                 // printf("%s-%s inserted\n", key, value);
                 break;
             // get_value
             case 1:
+                // printf("entrou\n");
                 n_bytes = recv(app->app_sock[0], key, MAX_LENGTH, 0);
+                // printf("received %d bytes\n", n_bytes);
+                // printf("getting value for key: %s\n", key);
                 // printf("vai entrar no search\n");
                 s = pthread_rwlock_rdlock(&group->rwlock);
                 if (ht_search(group->table, key) != NULL) {
@@ -107,6 +109,7 @@ void *com_thread(void *arg) {
                     send(app->app_sock[0], &flag, sizeof(int), 0);
                     send(app->app_sock[0], &size, sizeof(int), 0);
                     send(app->app_sock[0], value, size, 0);
+
                 } else {
                     s = pthread_rwlock_unlock(&group->rwlock);
                     flag = -1;
