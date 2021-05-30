@@ -8,11 +8,11 @@ Group *group_head = NULL;
 
 void create_group(char *group_id) {
     Group *new_group = malloc(sizeof(Group));
-    new_group->table = create_table(CAPACITY);
     new_group->group_id = malloc(MAX_LENGTH * sizeof(char));
     strcpy(new_group->group_id, group_id);
     new_group->active = 1;
     new_group->apps_head = NULL;
+    new_group->pairs_head = NULL;
     new_group->next = group_head;
     group_head = new_group;
     pthread_rwlock_init(&new_group->rwlock, NULL);
@@ -38,13 +38,25 @@ Group *find_group(char *group_id) {
 }
 
 void delete_group(char *group_id) {
-    App *app, *aux_app;
+    App *app;
+    Pair *pair;
     Group *group = find_group(group_id);
-    free_table(group->table);
-    group->table = NULL;
     free(group->group_id);
     group->group_id = NULL;
     group->active = 0;
+
+    /*while (group->apps_head != NULL) {
+        app = group->apps_head;
+        group->apps_head = group->apps_head->next;
+        close(app->app_sock[0]);
+        close(app->app_sock[1]);
+        free(app);
+    }*/
+    while (group->pairs_head != NULL) {
+        pair = group->pairs_head;
+        group->pairs_head = group->pairs_head->next;
+        free_pair(pair);
+    }
 }
 
 void *com_thread(void *arg) {
@@ -56,7 +68,7 @@ void *com_thread(void *arg) {
     // printf("group_id: %s\n", group->group_id);
     time_t t;
     pthread_t thread_mon;
-
+    Pair *pair;
     App *app = group->apps_head;
     // app_sock[0] = app->app_sock[0];
     // app_sock[1] = app->app_sock[1];
@@ -86,7 +98,7 @@ void *com_thread(void *arg) {
                 // printf("inserting pair: %s-%s\n", key, value);
                 s = pthread_rwlock_wrlock(&group->rwlock);
 
-                ht_insert(group, key, value);
+                insert_pair(group, key, value);
                 s = pthread_rwlock_unlock(&group->rwlock);
                 // printf("%s-%s inserted\n", key, value);
                 break;
@@ -98,11 +110,11 @@ void *com_thread(void *arg) {
                 // printf("getting value for key: %s\n", key);
                 // printf("vai entrar no search\n");
                 s = pthread_rwlock_rdlock(&group->rwlock);
-                if (ht_search(group->table, key) != NULL) {
+                pair = pair_search(group, key);
+                if (pair != NULL) {
                     value = realloc(value,
-                                    (strlen(ht_search(group->table, key)) + 1) *
-                                        sizeof(char));
-                    value = ht_search(group->table, key);
+                                    (strlen(pair->value) + 1) * sizeof(char));
+                    strcpy(value, pair->value);
                     s = pthread_rwlock_unlock(&group->rwlock);
                     flag = 1;
                     size = (strlen(value) + 1);
@@ -120,8 +132,7 @@ void *com_thread(void *arg) {
             case 2:
                 n_bytes = recv(app->app_sock[0], key, MAX_LENGTH, 0);
                 s = pthread_rwlock_wrlock(&group->rwlock);
-                if (ht_search(group->table, key) != NULL) {
-                    delete_item(group->table, key);
+                if (delete_pair(group, key) == 1) {
                     s = pthread_rwlock_unlock(&group->rwlock);
                     flag = 1;
                     send(app->app_sock[0], &flag, sizeof(int), 0);
@@ -146,8 +157,8 @@ void *com_thread(void *arg) {
             case 4:
                 n_bytes = recv(app->app_sock[0], key, MAX_LENGTH, 0);
                 s = pthread_rwlock_wrlock(&group->rwlock);
-                if (ht_search(group->table, key) != NULL) {
-                    add_monitor(group->table, key, app->pid);
+                if (pair_search(group, key) != NULL) {
+                    add_monitor(group, key, app->pid);
                     flag = 1;
                 } else {
                     flag = -1;
@@ -185,7 +196,7 @@ void *accept_thread(void *arg) {
         n_bytes = recv(app_sock[0], secret, MAX_LENGTH, 0);
         // printf("received: %s and %s\n", group_id, secret);
         sprintf(msg, "0%c%s%c%s", '\0', group_id, '\0', secret);
-        sendto(server_sock[2], msg, MAX_LENGTH, MSG_CONFIRM,
+        sendto(server_sock[2], msg, MAX_LENGTH, 0,
                (const struct sockaddr *)&auth_server_addr, auth_addr_size);
         n_bytes =
             recvfrom(server_sock[2], &flag, sizeof(flag), 0,
@@ -294,7 +305,7 @@ int main() {
             token = strtok(NULL, " ");
             token[strcspn(token, "\n")] = 0;
             sprintf(msg, "1%c%s", '\0', token);
-            sendto(server_sock[2], msg, MAX_LENGTH, MSG_CONFIRM,
+            sendto(server_sock[2], msg, MAX_LENGTH, 0,
                    (const struct sockaddr *)&auth_server_addr, auth_addr_size);
             n_bytes =
                 recvfrom(server_sock[2], msg, MAX_LENGTH, MSG_WAITALL,
@@ -315,7 +326,7 @@ int main() {
             token = strtok(NULL, " ");
             token[strcspn(token, "\n")] = 0;
             sprintf(msg, "2%c%s", '\0', token);
-            sendto(server_sock[2], msg, MAX_LENGTH, MSG_CONFIRM,
+            sendto(server_sock[2], msg, MAX_LENGTH, 0,
                    (const struct sockaddr *)&auth_server_addr, auth_addr_size);
             n_bytes =
                 recvfrom(server_sock[2], &flag, sizeof(int), MSG_WAITALL,
@@ -333,7 +344,7 @@ int main() {
             token = strtok(NULL, " ");
             token[strcspn(token, "\n")] = 0;
             sprintf(msg, "3%c%s", '\0', token);
-            sendto(server_sock[2], msg, MAX_LENGTH, MSG_CONFIRM,
+            sendto(server_sock[2], msg, MAX_LENGTH, 0,
                    (const struct sockaddr *)&auth_server_addr, auth_addr_size);
             n_bytes =
                 recvfrom(server_sock[2], msg, MAX_LENGTH, MSG_WAITALL,
@@ -348,7 +359,7 @@ int main() {
                 printf("Secret: %s\n", aux);
                 printf(
                     "Number of key-value pairs: %d\n------------------------\n",
-                    group->table->count);
+                    get_list_size(group));
             } else {
                 printf("\nGroup %s does not exist\n----------------------\n",
                        token);

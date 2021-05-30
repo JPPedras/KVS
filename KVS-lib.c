@@ -12,7 +12,11 @@
 #define LOCAL_SERVER_ADDRESS_CB "/tmp/local_server_address_cb"
 #define MAX_LENGTH 512
 int app_sock[2];
-
+/*
+return 0 -> success
+return -1 -> incorrect password
+return -2 -> group does not exist
+*/
 int establish_connection(char* group_id, char* secret) {
     struct sockaddr_un app_sock_addr[2];
     int app_addr_size = sizeof(app_sock_addr[0]);
@@ -68,6 +72,11 @@ int establish_connection(char* group_id, char* secret) {
         return -1;
     }
 }
+
+/*
+return 1 -> success
+return -1 -> group does no longer exist
+*/
 int put_value(char* key, char* value) {
     int flag = 0, n_bytes;
     int size = strlen(value) + 1;
@@ -83,10 +92,11 @@ int put_value(char* key, char* value) {
     send(app_sock[0], value, strlen(value) + 1, 0);
     return 1;
 }
+
 /*
 return 1 -> success
-return -1 -> bosta1
-return -2 -> bosta2
+return -1 -> group does no longer exist
+return -2 -> key does not exist
 */
 int get_value(char* key, char** value) {
     int flag = 1, n_bytes, var = 0;
@@ -107,6 +117,12 @@ int get_value(char* key, char** value) {
         return -1;
     }
 }
+
+/*
+return 1 -> success
+return -1 -> group does no longer exist
+return -2 -> key does not exist
+*/
 int delete_value(char* key) {
     int flag = 2, n_bytes;
     if (send(app_sock[0], &flag, sizeof(int), 0) == -1) {
@@ -124,6 +140,11 @@ int delete_value(char* key) {
         return -1;
     }
 }
+
+/*
+return 1 -> success
+return -1 -> group no longer exists
+*/
 int close_connection() {
     int flag = 3, n_bytes;
     if (send(app_sock[0], &flag, sizeof(int), 0) == -1) {
@@ -138,6 +159,11 @@ int close_connection() {
     return 1;
 }
 
+/*
+return 1 -> success
+return -1 -> group no longer exists
+return -2 -> key does not exist
+*/
 int register_callback(char* key, void (*callback_function)(char*)) {
     int flag = 4, n_bytes = 1;
     pid_t childPid;

@@ -28,9 +28,8 @@ int main() {
         printf("error on bind\n");
         exit(-1);
     }
-
+    Pair *pair;
     Group *group = malloc(sizeof(Group));
-    group->table = create_table(CAPACITY);
     int flag;
     char *aux, *aux2;
 
@@ -49,12 +48,14 @@ int main() {
                 aux2 = strchr(aux, '\0');
                 aux2++;
                 // printf("received: %s and %s\n", aux, aux2);
-                if (ht_search(group->table, aux) != NULL) {
-                    if (strcmp(aux2, ht_search(group->table, aux)) == 0) {
+
+                pair = pair_search(group, aux);
+                if (pair != NULL) {
+                    if (strcmp(pair->value, aux2) == 0) {
                         flag = 1;
                     }
                 }
-                sendto(auth_server_sock, &flag, sizeof(int), MSG_CONFIRM,
+                sendto(auth_server_sock, &flag, sizeof(int), 0,
                        (struct sockaddr *)&local_server_addr, local_addr_size);
                 break;
             // create group
@@ -62,15 +63,16 @@ int main() {
                 aux = strchr(aux, '\0');
                 aux++;
                 // sprintf(secret, "%d", rand() % 100000);
-                if (ht_search(group->table, aux) == NULL) {
+                pair = pair_search(group, aux);
+                if (pair == NULL) {
                     sprintf(secret, "%s", "password");
                     // printf("secret: %s\n", secret);
-                    ht_insert(group, aux, secret);
+                    insert_pair(group, aux, secret);
                     sprintf(msg, "1%c%s", '\0', "password");
                 } else {
                     strcpy(msg, "0");
                 }
-                sendto(auth_server_sock, msg, MAX_LENGTH, MSG_CONFIRM,
+                sendto(auth_server_sock, msg, MAX_LENGTH, 0,
                        (struct sockaddr *)&local_server_addr, local_addr_size);
 
                 break;
@@ -79,14 +81,13 @@ int main() {
                 // printf(("hey\n"));
                 aux = strchr(aux, '\0');
                 aux++;
-                if (ht_search(group->table, aux) != NULL) {
-                    delete_item(group->table, aux);
+                if (delete_pair(group, aux) == 1) {
                     flag = 1;
                 } else {
                     // printf("hey\n");
                     flag = 0;
                 }
-                sendto(auth_server_sock, &flag, sizeof(int), MSG_CONFIRM,
+                sendto(auth_server_sock, &flag, sizeof(int), 0,
                        (struct sockaddr *)&local_server_addr, local_addr_size);
                 break;
             // get secret
@@ -94,13 +95,14 @@ int main() {
                 aux = strchr(aux, '\0');
                 aux++;
                 // printf("entrou no search\n");
-                if (ht_search(group->table, aux) != NULL) {
-                    secret = ht_search(group->table, aux);
+                pair = pair_search(group, aux);
+                if (pair != NULL) {
+                    strcpy(secret, pair->value);
                     sprintf(msg, "1%c%s", '\0', secret);
                 } else {
                     strcpy(msg, "0");
                 }
-                sendto(auth_server_sock, msg, MAX_LENGTH, MSG_CONFIRM,
+                sendto(auth_server_sock, msg, MAX_LENGTH, 0,
                        (struct sockaddr *)&local_server_addr, local_addr_size);
                 break;
         }

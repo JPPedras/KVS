@@ -21,41 +21,27 @@ typedef struct App {
     struct App* next;
 } App;
 
-typedef struct Ht_item {
+typedef struct Pair {
     char* key;
     char* value;
     int* mon;
     int count;
-} Ht_item;
-
-typedef struct Msg {
-    char* key;
-    int index[2];
-} Msg;
-
-typedef struct Table {
-    Ht_item** items;
-    int size;
-    int count;
-} Table;
+    struct Pair* next;
+} Pair;
 
 typedef struct Group {
     char* group_id;
     int active;
     pthread_rwlock_t rwlock;
-    struct Table* table;
+    struct Pair* pairs_head;
     struct App* apps_head;
     struct Group* next;
 } Group;
 
-unsigned long hash_function(char* key);
-Ht_item* create_item(char* key, char* val);
-Table* create_table(int size);
-void free_item(Ht_item* item);
-void free_table(Table* table);
-void handle_collision(Table* table, unsigned long index, Ht_item* item);
-void ht_insert(Group* group, char* key, char* value);
-char* ht_search(Table* table, char* key);
-void delete_item(Table* table, char* key);
-Msg* create_msg(char* key, int index1, int index2);
-void add_monitor(Table* table, char* key, int pid);
+void add_new_pair(Group* group, char* key, char* value);
+void insert_pair(Group* group, char* key, char* value);
+int get_list_size(Group* group);
+void free_pair(Pair* pair);
+Pair* pair_search(Group* group, char* key);
+int delete_pair(Group* group, char* key);
+void add_monitor(Group* group, char* key, int pid);

@@ -3,6 +3,8 @@
         "type_traits": "c",
         "hash_tables.h": "c",
         "pthread.h": "c",
-        "inet.h": "c"
+        "inet.h": "c",
+        "stdlib.h": "c",
+        "socket.h": "c"
     }
 }

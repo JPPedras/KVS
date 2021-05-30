@@ -19,21 +19,37 @@ void f1(char *changed_key) {
 
 int main() {
     int flag = establish_connection("111", "password");
-    printf("flag: %d\n", flag);
+    // printf("flag: %d\n", flag);
     char *value;
+    char *key = malloc(MAX_LENGTH * sizeof(char));
 
-    flag = put_value("nome", "goncalo");
-    // flag = register_callback("nome", f1);
+    /*flag = put_value("nome", "goncalo");
+    flag = register_callback("nome", f1);
     flag = get_value("nome", &value);
     printf("nome: %s\n", value);
-    flag = delete_value("nome");
+    // flag = delete_value("nome");
     flag = put_value("armagedon", "pedrassdfsfsfs");
     flag = get_value("armagedon", &value);
     printf("armagedon: %s\n", value);
     flag = put_value("hellohello", "coelho");
     flag = get_value("hellohello", &value);
     printf("hellohello: %s\n", value);
+    flag = put_value("nome", "andre");
+    flag = get_value("nome", &value);
+    printf("nome: %s\n", value);*/
+    for (int i = 0; i < 100; i++) {
+        sprintf(key, "%d", i);
+        flag = put_value(key, "teste");
+    }
+    for (int i = 0; i < 100; i = i + 2) {
+        sprintf(key, "%d", i);
+        flag = get_value(key, &value);
+        flag = delete_value(key);
+    }
 
+    flag = get_value("99", &value);
+    printf("flag: %d\n", flag);
+    printf("99: %s\n", value);
     // sleep(10);
     // lag = close_connection();
     getchar();
