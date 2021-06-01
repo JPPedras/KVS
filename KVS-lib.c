@@ -14,8 +14,9 @@
 int app_sock[2];
 /*
 return 0 -> success
-return -1 -> incorrect password
-return -2 -> group does not exist
+return -1 -> group does not exist
+return -2 -> incorrect password
+return -3 -> timeout
 */
 int establish_connection(char* group_id, char* secret) {
     struct sockaddr_un app_sock_addr[2];
@@ -81,30 +82,36 @@ int put_value(char* key, char* value) {
     int flag = 0, n_bytes;
     int size = strlen(value) + 1;
     if (send(app_sock[0], &flag, sizeof(int), 0) == -1) {
-        return -2;
+        return -1;
     }
-    recv(app_sock[0], &flag, sizeof(int), 0);
-    if (flag == -2) {
-        return -2;
+    n_bytes = recv(app_sock[0], &flag, sizeof(int), 0);
+    if (flag == -2 || n_bytes == 0) {
+        return -1;
     }
-    send(app_sock[0], key, MAX_LENGTH, 0);
-    send(app_sock[0], &size, sizeof(int), 0);
-    send(app_sock[0], value, strlen(value) + 1, 0);
+    if (send(app_sock[0], key, MAX_LENGTH, 0) == -1) {
+        return -1;
+    }
+    if (send(app_sock[0], &size, sizeof(int), 0) == -1) {
+        return -1;
+    }
+    if (send(app_sock[0], value, strlen(value) + 1, 0) == -1) {
+        return -1;
+    }
     return 1;
 }
 
 /*
 return 1 -> success
-return -1 -> group does no longer exist
-return -2 -> key does not exist
+return -1 -> key does not exist
+return -2 -> group does no longer exist
 */
 int get_value(char* key, char** value) {
     int flag = 1, n_bytes, var = 0;
     int size;
     send(app_sock[0], &flag, sizeof(int), 0);
     recv(app_sock[0], &flag, sizeof(int), 0);
-    if (flag == -2) {
-        return -2;
+    if (flag == -1) {
+        return -1;
     }
     send(app_sock[0], key, MAX_LENGTH, 0);
     n_bytes = recv(app_sock[0], &flag, sizeof(int), 0);
@@ -114,7 +121,7 @@ int get_value(char* key, char** value) {
         n_bytes = recv(app_sock[0], *value, size, 0);
         return 1;
     } else {
-        return -1;
+        return -2;
     }
 }
 
@@ -161,8 +168,8 @@ int close_connection() {
 
 /*
 return 1 -> success
-return -1 -> group no longer exists
-return -2 -> key does not exist
+return -1 -> key does not exist
+return -2 -> group no longer exists
 */
 int register_callback(char* key, void (*callback_function)(char*)) {
     int flag = 4, n_bytes = 1;

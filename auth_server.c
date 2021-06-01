@@ -53,7 +53,11 @@ int main() {
                 if (pair != NULL) {
                     if (strcmp(pair->value, aux2) == 0) {
                         flag = 1;
+                    } else {
+                        flag = -2;
                     }
+                } else {
+                    flag = -1;
                 }
                 sendto(auth_server_sock, &flag, sizeof(int), 0,
                        (struct sockaddr *)&local_server_addr, local_addr_size);
@@ -66,11 +70,10 @@ int main() {
                 pair = pair_search(group, aux);
                 if (pair == NULL) {
                     sprintf(secret, "%s", "password");
-                    // printf("secret: %s\n", secret);
                     insert_pair(group, aux, secret);
-                    sprintf(msg, "1%c%s", '\0', "password");
+                    sprintf(msg, "1%c%s", '\0', secret);
                 } else {
-                    strcpy(msg, "0");
+                    sprintf(msg, "1%c%s", '\0', pair->value);
                 }
                 sendto(auth_server_sock, msg, MAX_LENGTH, 0,
                        (struct sockaddr *)&local_server_addr, local_addr_size);
@@ -81,11 +84,12 @@ int main() {
                 // printf(("hey\n"));
                 aux = strchr(aux, '\0');
                 aux++;
-                if (delete_pair(group, aux) == 1) {
-                    flag = 1;
+                pair = pair_search(group, aux);
+                if (pair == NULL) {
+                    flag = -1;
                 } else {
-                    // printf("hey\n");
-                    flag = 0;
+                    flag = delete_pair(group, aux);
+                    flag = -1;
                 }
                 sendto(auth_server_sock, &flag, sizeof(int), 0,
                        (struct sockaddr *)&local_server_addr, local_addr_size);
@@ -94,13 +98,13 @@ int main() {
             case 3:
                 aux = strchr(aux, '\0');
                 aux++;
-                // printf("entrou no search\n");
+
                 pair = pair_search(group, aux);
                 if (pair != NULL) {
                     strcpy(secret, pair->value);
                     sprintf(msg, "1%c%s", '\0', secret);
                 } else {
-                    strcpy(msg, "0");
+                    strcpy(msg, "-1");
                 }
                 sendto(auth_server_sock, msg, MAX_LENGTH, 0,
                        (struct sockaddr *)&local_server_addr, local_addr_size);

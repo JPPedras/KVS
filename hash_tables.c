@@ -9,15 +9,18 @@
 #include <unistd.h>
 
 void add_new_pair(Group* group, char* key, char* value) {
+    int s;
     Pair* pair = malloc(sizeof(Pair));
+    pthread_rwlock_init(&pair->rwlock, NULL);
     pair->key = malloc((strlen(key) + 1) * sizeof(char));
     pair->value = malloc((strlen(value) + 1) * sizeof(char));
     strcpy(pair->key, key);
     strcpy(pair->value, value);
     pair->count = 0;
+    pair->mon = NULL;
     pair->next = group->pairs_head;
     group->pairs_head = pair;
-    pair->mon = NULL;
+
 }
 
 void insert_pair(Group* group, char* key, char* value) {
@@ -64,9 +67,12 @@ void free_pair(Pair* pair) {
 // find a link with given key
 Pair* pair_search(Group* group, char* key) {
     // start from the first link
+    int s;
+
     Pair* pair = group->pairs_head;
 
-    // if list is empty
+    Pair* aux_pair;
+
     if (pair == NULL) {
         return NULL;
     }
@@ -77,11 +83,10 @@ Pair* pair_search(Group* group, char* key) {
         if (pair->next == NULL) {
             return NULL;
         } else {
-            // go to next link
+            aux_pair = pair;
             pair = pair->next;
         }
     }
-
     // if data found, return the current Link
     return pair;
 }

@@ -5,19 +5,20 @@
 #define LOCAL_SERVER_ADDR_CB "/tmp/local_server_address_cb"
 #define MAX_LENGTH 512
 Group *group_head = NULL;
+int server_sock[3];
+struct sockaddr_un un_server_sock_addr[2];
+struct sockaddr_in in_server_sock_addr;
+struct sockaddr_in auth_server_addr;
+int un_server_addr_size;
+int in_server_addr_size;
+int auth_addr_size;
 
-void create_group(char *group_id) {
-    Group *new_group = malloc(sizeof(Group));
-    new_group->group_id = malloc(MAX_LENGTH * sizeof(char));
-    strcpy(new_group->group_id, group_id);
-    new_group->active = 1;
-    new_group->apps_head = NULL;
-    new_group->pairs_head = NULL;
-    new_group->next = group_head;
-    group_head = new_group;
-    pthread_rwlock_init(&new_group->rwlock, NULL);
-}
-
+/*Flags from auth_server
+1 -> success
+-1 -> group no longer available
+-2 -> incorrect password
+-3 -> memory error
+*/
 Group *find_group(char *group_id) {
     Group *group = group_head;
     int s;
@@ -37,26 +38,178 @@ Group *find_group(char *group_id) {
     return group;
 }
 
-void delete_group(char *group_id) {
-    App *app;
-    Pair *pair;
-    Group *group = find_group(group_id);
-    free(group->group_id);
-    group->group_id = NULL;
-    group->active = 0;
+void create_group(char *group_id) {
+    int n_bytes, i;
+    char *secret = (char *)malloc(MAX_LENGTH * sizeof(char));
+    char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
+    char *aux;
 
-    /*while (group->apps_head != NULL) {
-        app = group->apps_head;
-        group->apps_head = group->apps_head->next;
-        close(app->app_sock[0]);
-        close(app->app_sock[1]);
-        free(app);
-    }*/
-    while (group->pairs_head != NULL) {
-        pair = group->pairs_head;
-        group->pairs_head = group->pairs_head->next;
-        free_pair(pair);
+    Group *group = find_group(group_id);
+    if (group == NULL) {
+        sprintf(msg, "1%c%s", '\0', group_id);
+        for (i = 0; i < 20; i++) {
+            sendto(server_sock[2], msg, MAX_LENGTH, 0,
+                   (const struct sockaddr *)&auth_server_addr, auth_addr_size);
+            n_bytes =
+                recvfrom(server_sock[2], msg, MAX_LENGTH, MSG_DONTWAIT,
+                         (struct sockaddr *)&auth_server_addr, &auth_addr_size);
+            usleep(500000);
+            if (n_bytes != 0) {
+                break;
+            }
+        }
+        if (i == 20) {
+            printf("\nCreate timed out\n---------------------\n");
+            return;
+        }
+        aux = msg;
+        if (strcmp(aux, "1") == 0) {
+            Group *new_group = malloc(sizeof(Group));
+            new_group->group_id = malloc(MAX_LENGTH * sizeof(char));
+            strcpy(new_group->group_id, group_id);
+            new_group->active = 1;
+            new_group->apps_head = NULL;
+            new_group->pairs_head = NULL;
+            new_group->next = group_head;
+            group_head = new_group;
+            pthread_rwlock_init(&new_group->rwlock, NULL);
+            aux = strchr(aux, '\0');
+            aux++;
+            printf("\nCreated group: %s\n", group_id);
+            printf("Group secret: %s\n-----------------------\n", aux);
+        } else {
+            printf(
+                "\nErro no Authentication "
+                "server\n-------------------------\n");
+        }
+    } else {
+        printf("\nGroup %s already exists\n----------------------\n", group_id);
     }
+}
+
+void delete_group(char *group_id) {
+    int i, n_bytes, flag, s;
+    char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
+    char *aux;
+
+    Group *group = find_group(group_id);
+    if (group != NULL) {
+        sprintf(msg, "2%c%s", '\0', group_id);
+        for (i = 0; i < 20; i++) {
+            sendto(server_sock[2], msg, MAX_LENGTH, 0,
+                   (const struct sockaddr *)&auth_server_addr, auth_addr_size);
+            usleep(500000);
+            n_bytes =
+                recvfrom(server_sock[2], &flag, sizeof(int), MSG_DONTWAIT,
+                         (struct sockaddr *)&auth_server_addr, &auth_addr_size);
+            if (n_bytes != 0) {
+                break;
+            }
+        }
+        if (i == 20) {
+            printf(
+                "\nDelete on Auth_Server timed out\n-----------------------\n");
+            return;
+        }
+        if (flag == 1 || flag == -1) {
+            App *app;
+            Pair *pair;
+            s = pthread_rwlock_wrlock(&group->rwlock);
+            free(group->group_id);
+            group->group_id = NULL;
+            group->active = 0;
+
+            while (group->pairs_head != NULL) {
+                pair = group->pairs_head;
+                group->pairs_head = group->pairs_head->next;
+                free_pair(pair);
+            }
+            s = pthread_rwlock_unlock(&group->rwlock);
+            printf("\nGroup %s deleted\n----------------------\n", group_id);
+        }
+    } else {
+        printf("\nGroup %s does not exist\n----------------------\n", group_id);
+    }
+}
+
+void get_info(char *group_id) {
+    int i, n_bytes, flag, s;
+    char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
+    char *aux;
+
+    Group *group = find_group(group_id);
+    if (group != NULL) {
+        sprintf(msg, "3%c%s", '\0', group_id);
+        for (i = 0; i < 20; i++) {
+            sendto(server_sock[2], msg, MAX_LENGTH, 0,
+                   (const struct sockaddr *)&auth_server_addr, auth_addr_size);
+            usleep(500000);
+            n_bytes =
+                recvfrom(server_sock[2], msg, MAX_LENGTH, MSG_DONTWAIT,
+                         (struct sockaddr *)&auth_server_addr, &auth_addr_size);
+            if (n_bytes != 0) {
+                break;
+            }
+        }
+        if (i == 20) {
+            printf(
+                "\nGet info on Auth_Server timed "
+                "out\n-----------------------\n");
+            return;
+        }
+        aux = msg;
+        if (strcmp(aux, "1") == 0) {
+            aux = strchr(aux, '\0');
+            aux++;
+
+            printf("-----------------\nGroup %s info\n", group_id);
+            printf("Secret: %s\n", aux);
+            s = pthread_rwlock_rdlock(&group->rwlock);
+            printf("Number of key-value pairs: %d\n------------------------\n",
+                   get_list_size(group));
+            s = pthread_rwlock_unlock(&group->rwlock);
+        } else if (strcmp(aux, "-1") == 0) {
+            printf("\nGroup no longer available in authentication server\n");
+            printf("Group %s will be deleted\n", group_id);
+            delete_group(group_id);
+        }
+    } else {
+        printf("\nGroup %s does not exist\n----------------------\n", group_id);
+    }
+}
+
+void get_status(char *group_id) {
+    int i, n_bytes, flag, s;
+    char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
+    char *aux;
+
+    Group *group = find_group(group_id);
+
+    if (group != NULL) {
+        s = pthread_rwlock_rdlock(&group->rwlock);
+        App *app = group->apps_head;
+        printf("----------------\nList of apps\n");
+        while (app != NULL) {
+            printf("Process %d:\n", app->pid);
+
+            printf("  -> Conected on %s", ctime(&app->t[0]));
+            if (app->conected == 0) {
+                printf("  -> Disconected on %s", ctime(&app->t[1]));
+            }
+
+            app = app->next;
+        }
+        printf("-------------------\n");
+        s = pthread_rwlock_unlock(&group->rwlock);
+    } else {
+        printf("\nGroup %s does not exist\n----------------------\n", group_id);
+    }
+}
+
+void close_app(App *app) {
+    close(app->app_sock[0]);
+    close(app->app_sock[1]);
+    free(app);
 }
 
 void *com_thread(void *arg) {
@@ -80,9 +233,11 @@ void *com_thread(void *arg) {
         } else if (group->active == 0) {
             flag = -2;
             send(app->app_sock[0], &flag, sizeof(int), 0);
+            s = pthread_rwlock_wrlock(&group->rwlock);
             close(app->app_sock[0]);
             close(app->app_sock[1]);
             free(app);
+            s = pthread_rwlock_unlock(&group->rwlock);
             pthread_exit(NULL);
         } else if (n_bytes != 0) {
             flag2 = 1;
@@ -97,8 +252,9 @@ void *com_thread(void *arg) {
                 n_bytes = recv(app->app_sock[0], value, size * sizeof(char), 0);
                 // printf("inserting pair: %s-%s\n", key, value);
                 s = pthread_rwlock_wrlock(&group->rwlock);
-
-                insert_pair(group, key, value);
+                if (group->active == 1) {
+                    insert_pair(group, key, value);
+                }
                 s = pthread_rwlock_unlock(&group->rwlock);
                 // printf("%s-%s inserted\n", key, value);
                 break;
@@ -106,25 +262,29 @@ void *com_thread(void *arg) {
             case 1:
                 // printf("entrou\n");
                 n_bytes = recv(app->app_sock[0], key, MAX_LENGTH, 0);
-                // printf("received %d bytes\n", n_bytes);
-                // printf("getting value for key: %s\n", key);
-                // printf("vai entrar no search\n");
-                s = pthread_rwlock_rdlock(&group->rwlock);
-                pair = pair_search(group, key);
-                if (pair != NULL) {
-                    value = realloc(value,
-                                    (strlen(pair->value) + 1) * sizeof(char));
-                    strcpy(value, pair->value);
-                    s = pthread_rwlock_unlock(&group->rwlock);
-                    flag = 1;
-                    size = (strlen(value) + 1);
-                    send(app->app_sock[0], &flag, sizeof(int), 0);
-                    send(app->app_sock[0], &size, sizeof(int), 0);
-                    send(app->app_sock[0], value, size, 0);
 
+                s = pthread_rwlock_rdlock(&group->rwlock);
+                if (group->active == 1) {
+                    pair = pair_search(group, key);
+                    if (pair != NULL) {
+                        value = realloc(
+                            value, (strlen(pair->value) + 1) * sizeof(char));
+                        strcpy(value, pair->value);
+                        s = pthread_rwlock_unlock(&group->rwlock);
+                        flag = 1;
+                        size = (strlen(value) + 1);
+                        send(app->app_sock[0], &flag, sizeof(int), 0);
+                        send(app->app_sock[0], &size, sizeof(int), 0);
+                        send(app->app_sock[0], value, size, 0);
+
+                    } else {
+                        s = pthread_rwlock_unlock(&group->rwlock);
+                        flag = -1;
+                        send(app->app_sock[0], &flag, sizeof(int), 0);
+                    }
                 } else {
+                    flag = -2;
                     s = pthread_rwlock_unlock(&group->rwlock);
-                    flag = -1;
                     send(app->app_sock[0], &flag, sizeof(int), 0);
                 }
                 break;
@@ -132,22 +292,27 @@ void *com_thread(void *arg) {
             case 2:
                 n_bytes = recv(app->app_sock[0], key, MAX_LENGTH, 0);
                 s = pthread_rwlock_wrlock(&group->rwlock);
-                if (delete_pair(group, key) == 1) {
-                    s = pthread_rwlock_unlock(&group->rwlock);
-                    flag = 1;
-                    send(app->app_sock[0], &flag, sizeof(int), 0);
+                if (group->active == 1) {
+                    if (delete_pair(group, key) == 1) {
+                        flag = 1;
+
+                    } else {
+                        flag = -1;
+                    }
                 } else {
-                    s = pthread_rwlock_unlock(&group->rwlock);
-                    flag = -1;
-                    send(app->app_sock[0], &flag, sizeof(int), 0);
+                    flag = -2;
                 }
+                s = pthread_rwlock_unlock(&group->rwlock);
+                send(app->app_sock[0], &flag, sizeof(int), 0);
                 break;
             // close_conect
             case 3:
                 s = pthread_rwlock_wrlock(&group->rwlock);
-                app->conected = 0;
-                time(&t);
-                app->t[1] = t;
+                if (group->active == 1) {
+                    app->conected = 0;
+                    time(&t);
+                    app->t[1] = t;
+                }
                 close(app->app_sock[0]);
                 close(app->app_sock[1]);
                 s = pthread_rwlock_unlock(&group->rwlock);
@@ -157,11 +322,15 @@ void *com_thread(void *arg) {
             case 4:
                 n_bytes = recv(app->app_sock[0], key, MAX_LENGTH, 0);
                 s = pthread_rwlock_wrlock(&group->rwlock);
-                if (pair_search(group, key) != NULL) {
-                    add_monitor(group, key, app->pid);
-                    flag = 1;
+                if (group->active == 1) {
+                    if (pair_search(group, key) != NULL) {
+                        add_monitor(group, key, app->pid);
+                        flag = 1;
+                    } else {
+                        flag = -1;
+                    }
                 } else {
-                    flag = -1;
+                    flag = -2;
                 }
                 s = pthread_rwlock_unlock(&group->rwlock);
                 send(app->app_sock[0], &flag, sizeof(int), 0);
@@ -193,14 +362,42 @@ void *accept_thread(void *arg) {
                              &app_addr_size);
 
         n_bytes = recv(app_sock[0], group_id, MAX_LENGTH, 0);
+        if (n_bytes == 0) {
+            continue;
+        }
         n_bytes = recv(app_sock[0], secret, MAX_LENGTH, 0);
-        // printf("received: %s and %s\n", group_id, secret);
-        sprintf(msg, "0%c%s%c%s", '\0', group_id, '\0', secret);
-        sendto(server_sock[2], msg, MAX_LENGTH, 0,
-               (const struct sockaddr *)&auth_server_addr, auth_addr_size);
-        n_bytes =
-            recvfrom(server_sock[2], &flag, sizeof(flag), 0,
-                     (struct sockaddr *)&auth_server_addr, &auth_addr_size);
+        if (n_bytes == 0) {
+            continue;
+        }
+        group = find_group(group_id);
+        if (group != NULL) {
+            sprintf(msg, "0%c%s%c%s", '\0', group_id, '\0', secret);
+            for (i = 0; i < 20; i++) {
+                sendto(server_sock[2], msg, MAX_LENGTH, 0,
+                       (const struct sockaddr *)&auth_server_addr,
+                       auth_addr_size);
+                usleep(500000);
+                n_bytes = recvfrom(
+                    server_sock[2], &flag, sizeof(flag), MSG_DONTWAIT,
+                    (struct sockaddr *)&auth_server_addr, &auth_addr_size);
+                if (n_bytes != 0) {
+                    break;
+                }
+            }
+            if (i == 20) {
+                flag = -3;
+            }
+            if (flag == -1) {
+                printf(
+                    "\nGroup no longer available in authentication "
+                    "server\nGroup "
+                    "%s will be deleted",
+                    group_id);
+                delete_group(group_id);
+            }
+        } else {
+            flag = -1;
+        }
         send(app_sock[0], &flag, sizeof(int), 0);
         if (flag != 1) {
             continue;
@@ -211,7 +408,6 @@ void *accept_thread(void *arg) {
 
         // n_bytes = recv(clients[i], group_id, sizeof(group_id), 0);
         // if authorized
-        group = find_group(group_id);
         s = pthread_rwlock_wrlock(&group->rwlock);
         // printf("pos:%d\n", pos);
         App *new_app = malloc(sizeof(App));
@@ -232,18 +428,16 @@ int main() {
     char *command = (char *)malloc(MAX_LENGTH * sizeof(char));
     char *secret = (char *)malloc(MAX_LENGTH * sizeof(char));
     char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
-    int server_sock[3], i = 0, flag;
-    struct sockaddr_un un_server_sock_addr[2];
-    struct sockaddr_in in_server_sock_addr;
-    struct sockaddr_in auth_server_addr;
-    int un_server_addr_size = sizeof(un_server_sock_addr[0]);
-    int in_server_addr_size = sizeof(in_server_sock_addr);
+    int i = 0, flag, s;
+    un_server_addr_size = sizeof(un_server_sock_addr[0]);
+    in_server_addr_size = sizeof(in_server_sock_addr);
+    auth_addr_size = sizeof(auth_server_addr);
     pthread_t ac_thread;
     int n_bytes;
-    int auth_addr_size = sizeof(auth_server_addr);
     auth_server_addr.sin_family = AF_INET;
     inet_aton("127.0.0.1", &auth_server_addr.sin_addr);
     auth_server_addr.sin_port = htons(8080);
+    Group *group;
 
     server_sock[0] = socket(AF_UNIX, SOCK_STREAM, 0);
     if (server_sock[0] == -1) {
@@ -304,89 +498,23 @@ int main() {
         if (strcmp(token, "c") == 0) {
             token = strtok(NULL, " ");
             token[strcspn(token, "\n")] = 0;
-            sprintf(msg, "1%c%s", '\0', token);
-            sendto(server_sock[2], msg, MAX_LENGTH, 0,
-                   (const struct sockaddr *)&auth_server_addr, auth_addr_size);
-            n_bytes =
-                recvfrom(server_sock[2], msg, MAX_LENGTH, MSG_WAITALL,
-                         (struct sockaddr *)&auth_server_addr, &auth_addr_size);
-            aux = msg;
-            if (strcmp(aux, "1") == 0) {
-                // printf("hey\n");
-                create_group(token);
-                aux = strchr(aux, '\0');
-                aux++;
-                printf("\nCreated group: %s\n", token);
-                printf("Group secret: %s\n-----------------------\n", aux);
-            } else {
-                printf("\nGroup %s already exists\n----------------------\n",
-                       token);
-            }
+            create_group(token);
+
         } else if (strcmp(token, "d") == 0) {
             token = strtok(NULL, " ");
             token[strcspn(token, "\n")] = 0;
-            sprintf(msg, "2%c%s", '\0', token);
-            sendto(server_sock[2], msg, MAX_LENGTH, 0,
-                   (const struct sockaddr *)&auth_server_addr, auth_addr_size);
-            n_bytes =
-                recvfrom(server_sock[2], &flag, sizeof(int), MSG_WAITALL,
-                         (struct sockaddr *)&auth_server_addr, &auth_addr_size);
-            // printf("flag: %d\n", flag);
-            if (flag == 1) {
-                delete_group(token);
-                printf("\nGroup %s deleted\n----------------------\n", token);
-            } else {
-                printf("\nGroup %s does not exist\n----------------------\n",
-                       token);
-            }
+            delete_group(token);
 
         } else if (strcmp(token, "i") == 0) {
             token = strtok(NULL, " ");
             token[strcspn(token, "\n")] = 0;
-            sprintf(msg, "3%c%s", '\0', token);
-            sendto(server_sock[2], msg, MAX_LENGTH, 0,
-                   (const struct sockaddr *)&auth_server_addr, auth_addr_size);
-            n_bytes =
-                recvfrom(server_sock[2], msg, MAX_LENGTH, MSG_WAITALL,
-                         (struct sockaddr *)&auth_server_addr, &auth_addr_size);
-            aux = msg;
-            if (strcmp(aux, "1") == 0) {
-                aux = strchr(aux, '\0');
-                aux++;
-                Group *group = find_group(token);
+            get_info(token);
 
-                printf("-----------------\nGroup %s info\n", token);
-                printf("Secret: %s\n", aux);
-                printf(
-                    "Number of key-value pairs: %d\n------------------------\n",
-                    get_list_size(group));
-            } else {
-                printf("\nGroup %s does not exist\n----------------------\n",
-                       token);
-            }
         } else if (strcmp(token, "s") == 0) {
             token = strtok(NULL, " ");
             token[strcspn(token, "\n")] = 0;
-            Group *group = find_group(token);
+            get_status(token);
 
-            if (group != NULL) {
-                App *app = group->apps_head;
-                printf("----------------\nList of apps\n");
-                while (app != NULL) {
-                    printf("Process %d:\n", app->pid);
-
-                    printf("  -> Conected on %s", ctime(&app->t[0]));
-                    if (app->conected == 0) {
-                        printf("  -> Disconected on %s", ctime(&app->t[1]));
-                    }
-
-                    app = app->next;
-                }
-                printf("-------------------\n");
-            } else {
-                printf("\nGroup %s does not exist\n----------------------\n",
-                       token);
-            }
         } else {
             printf("\nInvalid command\n");
         }

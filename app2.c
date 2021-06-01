@@ -14,15 +14,17 @@
 #define MAX_LENGTH 512
 
 void f1(char *changed_key) {
-    printf("The key with name %s was changed", changed_key);
+    printf("The key with name \'%s\' was changed\n", changed_key);
 }
 
 int main() {
     int flag = establish_connection("111", "password");
-    printf("flag: %d\n", flag);
-    char *value = malloc(MAX_LENGTH * sizeof(char));
+    // printf("flag: %d\n", flag);
+    char *value;
+    char *key = malloc(MAX_LENGTH * sizeof(char));
 
-    flag = put_value("nome", "joao");
+    flag = put_value("45", "wewewe");
+    flag = register_callback("45", f1);
 
     getchar();
     return 0;

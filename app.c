@@ -27,7 +27,7 @@ int main() {
     flag = register_callback("nome", f1);
     flag = get_value("nome", &value);
     printf("nome: %s\n", value);
-    // flag = delete_value("nome");
+    flag = delete_value("nome");
     flag = put_value("armagedon", "pedrassdfsfsfs");
     flag = get_value("armagedon", &value);
     printf("armagedon: %s\n", value);
@@ -40,16 +40,13 @@ int main() {
     for (int i = 0; i < 100; i++) {
         sprintf(key, "%d", i);
         flag = put_value(key, "teste");
-    }
-    for (int i = 0; i < 100; i = i + 2) {
-        sprintf(key, "%d", i);
-        flag = get_value(key, &value);
-        flag = delete_value(key);
+        if (flag == -1) {
+            printf("Group was deleted\n");
+            return 0;
+        }
+        usleep(400000);
     }
 
-    flag = get_value("99", &value);
-    printf("flag: %d\n", flag);
-    printf("99: %s\n", value);
     // sleep(10);
     // lag = close_connection();
     getchar();

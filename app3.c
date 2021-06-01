@@ -11,52 +11,22 @@
 #include "lib.h"
 
 #define SERVER_ADDR "/tmp/server_address"
-#define MAX_LENGTH 20
+#define MAX_LENGTH 512
 
-void *send_num(void *arg) {
-    int *client_sock = (int *)arg;
-    char msg[100];
-
-    while (1) {
-        fgets(msg, 100, stdin);
-        send(*client_sock, msg, sizeof(msg), 0);
-        // printf("client sent: %s", msg);
-        // printf("sent: %d\n", num);
-        // sleep(1);
-    }
-    pthread_exit(NULL);
-}
-
-void *recv_prime(void *arg) {
-    int n_bytes;
-    char msg[100];
-    int *client_sock = (int *)arg;
-
-    while (1) {
-        n_bytes = recv(*client_sock, msg, sizeof(msg), 0);
-        printf("new msg: %s", msg);
-    }
-    pthread_exit(NULL);
+void f1(char *changed_key) {
+    printf("The key with name \'%s\' was changed\n", changed_key);
 }
 
 int main() {
-    int flag = establish_connection("123", "password");
-    char *key = (char *)malloc(sizeof(char) * MAX_LENGTH);
-    char *value = (char *)malloc(sizeof(char) * MAX_LENGTH);
+    int flag = establish_connection("111", "password");
+    // printf("flag: %d\n", flag);
+    char *value;
+    char *key = malloc(MAX_LENGTH * sizeof(char));
 
-    strcpy(key, "nome");
-    strcpy(value, "joao");
-    flag = put_value(key, value);
+    flag = put_value("51", "wiwiwi");
+    flag = register_callback("45", f1);
+    flag = register_callback("51", f1);
 
-    strcpy(key, "apelido");
-    strcpy(value, "pedras");
-    flag = put_value(key, value);
-
-    strcpy(key, "apelido");
-    flag = get_value(key, &value);
-    printf("apelido: %s\n", value);
-
-    flag = close_connection();
     getchar();
     return 0;
 }

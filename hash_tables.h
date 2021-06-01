@@ -24,6 +24,7 @@ typedef struct App {
 typedef struct Pair {
     char* key;
     char* value;
+    pthread_rwlock_t rwlock;
     int* mon;
     int count;
     struct Pair* next;
