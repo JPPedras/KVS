@@ -12,6 +12,7 @@
 #define LOCAL_SERVER_ADDRESS_CB "/tmp/local_server_address_cb"
 #define MAX_LENGTH 512
 int app_sock[2];
+int callback_activate = 0;
 /*
 return 0 -> success
 return -1 -> group does not exist
@@ -174,6 +175,7 @@ return -2 -> group no longer exists
 int register_callback(char* key, void (*callback_function)(char*)) {
     int flag = 4, n_bytes = 1;
     pid_t childPid;
+    char* changed_key = malloc(MAX_LENGTH * sizeof(char));
     if (send(app_sock[0], &flag, sizeof(int), 0) == -1) {
         return -2;
     }
@@ -183,14 +185,15 @@ int register_callback(char* key, void (*callback_function)(char*)) {
     }
     send(app_sock[0], key, MAX_LENGTH, 0);
     n_bytes = recv(app_sock[0], &flag, sizeof(int), 0);
-    if (flag == 1) {
+    if (flag == 1 && callback_activate == 0) {
+        callback_activate = 1;
         switch (childPid = fork()) {
             case 0:
                 while (n_bytes != 0) {
-                    n_bytes = recv(app_sock[1], &flag, sizeof(int), 0);
+                    n_bytes = recv(app_sock[1], changed_key, MAX_LENGTH, 0);
                     // printf("n_bytes: %d\n", n_bytes);
                     if (n_bytes != 0) {
-                        callback_function(key);
+                        callback_function(changed_key);
                     }
                 }
             case -1:

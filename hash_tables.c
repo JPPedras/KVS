@@ -20,7 +20,6 @@ void add_new_pair(Group* group, char* key, char* value) {
     pair->mon = NULL;
     pair->next = group->pairs_head;
     group->pairs_head = pair;
-
 }
 
 void insert_pair(Group* group, char* key, char* value) {
@@ -38,7 +37,7 @@ void insert_pair(Group* group, char* key, char* value) {
             app = group->apps_head;
             while (app != NULL) {
                 if (app->pid == pair->mon[i] && app->conected == 1) {
-                    send(app->app_sock[1], &flag, sizeof(int), 0);
+                    send(app->app_sock[1], key, MAX_LENGTH, 0);
                     break;
                 }
                 app = app->next;

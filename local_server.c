@@ -50,10 +50,10 @@ void create_group(char *group_id) {
         for (i = 0; i < 20; i++) {
             sendto(server_sock[2], msg, MAX_LENGTH, 0,
                    (const struct sockaddr *)&auth_server_addr, auth_addr_size);
+            usleep(500000);
             n_bytes =
                 recvfrom(server_sock[2], msg, MAX_LENGTH, MSG_DONTWAIT,
                          (struct sockaddr *)&auth_server_addr, &auth_addr_size);
-            usleep(500000);
             if (n_bytes != 0) {
                 break;
             }
@@ -396,7 +396,7 @@ void *accept_thread(void *arg) {
                 delete_group(group_id);
             }
         } else {
-            flag = -1;
+            flag = -2;
         }
         send(app_sock[0], &flag, sizeof(int), 0);
         if (flag != 1) {

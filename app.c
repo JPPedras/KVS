@@ -48,7 +48,7 @@ int main() {
     }
 
     // sleep(10);
-    // lag = close_connection();
+    flag = close_connection();
     getchar();
     return 0;
 }
