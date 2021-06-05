@@ -8,42 +8,64 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-void add_new_pair(Group* group, char* key, char* value) {
-    int s;
+int add_new_pair(Group* group, char* key, char* value) {
+    
     Pair* pair = malloc(sizeof(Pair));
-    pthread_rwlock_init(&pair->rwlock, NULL);
+    if (pair == NULL) {
+        perror("Erro no malloc");
+        return -4;
+    }
     pair->key = malloc((strlen(key) + 1) * sizeof(char));
+    if (pair->key == NULL) {
+        perror("Erro no malloc");
+        return -4;
+    }
     pair->value = malloc((strlen(value) + 1) * sizeof(char));
+    if (pair->value == NULL) {
+        perror("Erro no malloc");
+        return -4;
+    }
     strcpy(pair->key, key);
     strcpy(pair->value, value);
     pair->count = 0;
     pair->mon = NULL;
     pair->next = group->pairs_head;
     group->pairs_head = pair;
+
+    return 1;
 }
 
-void insert_pair(Group* group, char* key, char* value) {
+int insert_pair(Group* group, char* key, char* value) {
     // create a link
     App* app;
-    int flag = 1;
+    int flag = 1, n_bytes;
     Pair* pair = pair_search(group, key);
 
     if (pair == NULL) {
-        add_new_pair(group, key, value);
+        flag = add_new_pair(group, key, value);
     } else {
         pair->value = realloc(pair->value, (strlen(value) + 1) * sizeof(char));
+        if (pair->value == NULL) {
+            perror("Erro no malloc");
+            return -4;
+        }
         strcpy(pair->value, value);
         for (int i = 0; i < pair->count; i++) {
             app = group->apps_head;
             while (app != NULL) {
                 if (app->pid == pair->mon[i] && app->conected == 1) {
-                    send(app->app_sock[1], key, MAX_LENGTH, 0);
+                    n_bytes = send(app->app_sock[1], key, MAX_LENGTH, 0);
+                    if (n_bytes == -1) {
+                        perror("Erro no send");
+                        exit(-1);
+                    }
                     break;
                 }
                 app = app->next;
             }
         }
     }
+    return flag;
 }
 
 int get_list_size(Group* group) {
@@ -96,14 +118,14 @@ int delete_pair(Group* group, char* key) {
     Pair* aux_pair = NULL;
 
     if (pair == NULL) {
-        return -1;
+        return -2;
     }
 
     // navigate through list
     while (strcmp(pair->key, key) != 0) {
         // if it is last node
         if (pair->next == NULL) {
-            return -1;
+            return -2;
         } else {
             aux_pair = pair;
             pair = pair->next;
@@ -121,7 +143,7 @@ int delete_pair(Group* group, char* key) {
     return 1;
 }
 
-void add_monitor(Group* group, char* key, int pid) {
+int add_monitor(Group* group, char* key, int pid) {
     // Searches the key in the hashtable
     // and returns NULL if it doesn't exist
     Pair* pair = pair_search(group, key);
@@ -130,6 +152,13 @@ void add_monitor(Group* group, char* key, int pid) {
     if (pair != NULL) {
         pair->count++;
         pair->mon = realloc(pair->mon, pair->count * sizeof(int));
+        if (pair->mon == NULL) {
+            perror("Erro no malloc");
+            return -4;
+        }
         pair->mon[pair->count - 1] = pid;
+        return 1;
+    } else {
+        return -2;
     }
 }

@@ -23,8 +23,31 @@ int main() {
     char *value;
     char *key = malloc(MAX_LENGTH * sizeof(char));
 
+    /*flag = put_value("nome", "goncalo");
+    flag = register_callback("nome", f1);
+    flag = get_value("nome", &value);
+    printf("nome: %s\n", value);
+    flag = delete_value("nome");
+    flag = put_value("armagedon", "pedrassdfsfsfs");
+    flag = get_value("armagedon", &value);
+    printf("armagedon: %s\n", value);
+    flag = put_value("hellohello", "coelho");
+    flag = get_value("hellohello", &value);
+    printf("hellohello: %s\n", value);
+    flag = put_value("nome", "andre");
+    flag = get_value("nome", &value);
+    printf("nome: %s\n", value);*/
     flag = put_value("45", "wewewe");
     flag = register_callback("45", f1);
+    for (int i = 0; i < 300; i++) {
+        sprintf(key, "%d", i);
+        flag = put_value(key, "teste");
+        if (flag == -1) {
+            printf("Group was deleted\n");
+            return 0;
+        }
+        usleep(100000);
+    }
 
     getchar();
     return 0;

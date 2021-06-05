@@ -14,10 +14,10 @@ int in_server_addr_size;
 int auth_addr_size;
 
 /*Flags from auth_server
-1 -> success
--1 -> group no longer available
--2 -> incorrect password
--3 -> memory error
+return  1-> success
+return -1 -> group does not exist
+return -2 -> incorrect password
+return -4 -> erro de memória
 */
 Group *find_group(char *group_id) {
     Group *group = group_head;
@@ -40,21 +40,38 @@ Group *find_group(char *group_id) {
 
 void create_group(char *group_id) {
     int n_bytes, i;
-    char *secret = (char *)malloc(MAX_LENGTH * sizeof(char));
-    char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
     char *aux;
+    char *secret = (char *)malloc(MAX_LENGTH * sizeof(char));
+    if (secret == NULL) {
+        perror("Erro no malloc");
+        exit(-1);
+    }
+    char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
+    if (msg == NULL) {
+        perror("Erro no malloc");
+        exit(-1);
+    }
 
     Group *group = find_group(group_id);
     if (group == NULL) {
         sprintf(msg, "1%c%s", '\0', group_id);
         for (i = 0; i < 20; i++) {
-            sendto(server_sock[2], msg, MAX_LENGTH, 0,
-                   (const struct sockaddr *)&auth_server_addr, auth_addr_size);
+            n_bytes = sendto(server_sock[2], msg, MAX_LENGTH, 0,
+                             (const struct sockaddr *)&auth_server_addr,
+                             auth_addr_size);
+            if (n_bytes == -1) {
+                perror("Erro no sendto");
+                exit(-1);
+            }
             usleep(500000);
             n_bytes =
                 recvfrom(server_sock[2], msg, MAX_LENGTH, MSG_DONTWAIT,
                          (struct sockaddr *)&auth_server_addr, &auth_addr_size);
-            if (n_bytes != 0) {
+            if (n_bytes == -1) {
+                perror("Erro no recvfrom");
+                exit(-1);
+            }
+            if (n_bytes > 0) {
                 break;
             }
         }
@@ -62,10 +79,19 @@ void create_group(char *group_id) {
             printf("\nCreate timed out\n---------------------\n");
             return;
         }
+
         aux = msg;
         if (strcmp(aux, "1") == 0) {
             Group *new_group = malloc(sizeof(Group));
+            if (new_group == NULL) {
+                perror("Erro no malloc");
+                exit(-1);
+            }
             new_group->group_id = malloc(MAX_LENGTH * sizeof(char));
+            if (new_group->group_id == NULL) {
+                perror("Erro no malloc");
+                exit(-1);
+            }
             strcpy(new_group->group_id, group_id);
             new_group->active = 1;
             new_group->apps_head = NULL;
@@ -77,7 +103,7 @@ void create_group(char *group_id) {
             aux++;
             printf("\nCreated group: %s\n", group_id);
             printf("Group secret: %s\n-----------------------\n", aux);
-        } else {
+        } else if (strcmp(aux, "-4") == 0) {
             printf(
                 "\nErro no Authentication "
                 "server\n-------------------------\n");
@@ -89,26 +115,40 @@ void create_group(char *group_id) {
 
 void delete_group(char *group_id) {
     int i, n_bytes, flag, s;
-    char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
     char *aux;
+    char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
+    if (msg == NULL) {
+        perror("Erro no malloc");
+        exit(-1);
+    }
 
     Group *group = find_group(group_id);
     if (group != NULL) {
         sprintf(msg, "2%c%s", '\0', group_id);
         for (i = 0; i < 20; i++) {
-            sendto(server_sock[2], msg, MAX_LENGTH, 0,
-                   (const struct sockaddr *)&auth_server_addr, auth_addr_size);
+            n_bytes = sendto(server_sock[2], msg, MAX_LENGTH, 0,
+                             (const struct sockaddr *)&auth_server_addr,
+                             auth_addr_size);
+            if (n_bytes == -1) {
+                perror("Erro no sendto");
+                exit(-1);
+            }
             usleep(500000);
             n_bytes =
                 recvfrom(server_sock[2], &flag, sizeof(int), MSG_DONTWAIT,
                          (struct sockaddr *)&auth_server_addr, &auth_addr_size);
+            if (n_bytes == -1) {
+                perror("Erro no recvfrom");
+                exit(-1);
+            }
             if (n_bytes != 0) {
                 break;
             }
         }
         if (i == 20) {
             printf(
-                "\nDelete on Auth_Server timed out\n-----------------------\n");
+                "\nDelete on Auth_Server timed "
+                "out\n-----------------------\n");
             return;
         }
         if (flag == 1 || flag == -1) {
@@ -135,18 +175,31 @@ void delete_group(char *group_id) {
 void get_info(char *group_id) {
     int i, n_bytes, flag, s;
     char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
+    if (msg == NULL) {
+        perror("Erro no malloc");
+        exit(-1);
+    }
     char *aux;
 
     Group *group = find_group(group_id);
     if (group != NULL) {
         sprintf(msg, "3%c%s", '\0', group_id);
         for (i = 0; i < 20; i++) {
-            sendto(server_sock[2], msg, MAX_LENGTH, 0,
-                   (const struct sockaddr *)&auth_server_addr, auth_addr_size);
+            n_bytes = sendto(server_sock[2], msg, MAX_LENGTH, 0,
+                             (const struct sockaddr *)&auth_server_addr,
+                             auth_addr_size);
+            if (n_bytes == -1) {
+                perror("Erro no sendto");
+                exit(-1);
+            }
             usleep(500000);
             n_bytes =
                 recvfrom(server_sock[2], msg, MAX_LENGTH, MSG_DONTWAIT,
                          (struct sockaddr *)&auth_server_addr, &auth_addr_size);
+            if (n_bytes == -1) {
+                perror("Erro no recvfrom");
+                exit(-1);
+            }
             if (n_bytes != 0) {
                 break;
             }
@@ -180,8 +233,12 @@ void get_info(char *group_id) {
 
 void get_status(char *group_id) {
     int i, n_bytes, flag, s;
-    char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
     char *aux;
+    char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
+    if (msg == NULL) {
+        perror("Erro no malloc");
+        exit(-1);
+    }
 
     Group *group = find_group(group_id);
 
@@ -207,61 +264,115 @@ void get_status(char *group_id) {
 }
 
 void close_app(App *app) {
-    close(app->app_sock[0]);
-    close(app->app_sock[1]);
+    if (close(app->app_sock[0]) == -1) {
+        perror("Erro no close");
+        exit(-1);
+    }
+    if (close(app->app_sock[1]) == -1) {
+        perror("Erro no close");
+        exit(-1);
+    }
     free(app);
 }
 
 void *com_thread(void *arg) {
-    int n_bytes, k, flag = 0, flag2, i, app_sock[2], size, index2, s;
-    int *pos = (int *)arg;
+    int n_bytes, k, flag = 0, flag2, i, app_sock[2], size, s;
     char *value;
-    char *key = (char *)malloc(sizeof(char) * MAX_LENGTH);
     Group *group = (Group *)arg;
-    // printf("group_id: %s\n", group->group_id);
     time_t t;
     pthread_t thread_mon;
     Pair *pair;
     App *app = group->apps_head;
-    // app_sock[0] = app->app_sock[0];
-    // app_sock[1] = app->app_sock[1];
+
+    char *key = (char *)malloc(sizeof(char) * MAX_LENGTH);
+    if (key == NULL) {
+        perror("Erro no malloc");
+        exit(-1);
+    }
 
     while (1) {
         n_bytes = recv(app->app_sock[0], &flag, sizeof(int), 0);
+        if (n_bytes == -1) {
+            perror("Erro no recv");
+            exit(-1);
+        }
         if (n_bytes == 0) {
             flag = 3;
         } else if (group->active == 0) {
-            flag = -2;
-            send(app->app_sock[0], &flag, sizeof(int), 0);
+            flag = -1;
+            n_bytes = send(app->app_sock[0], &flag, sizeof(int), 0);
+            if (n_bytes == -1) {
+                perror("Erro no send");
+                exit(-1);
+            }
             s = pthread_rwlock_wrlock(&group->rwlock);
-            close(app->app_sock[0]);
-            close(app->app_sock[1]);
+            if (close(app->app_sock[0]) == -1) {
+                perror("Erro no close");
+                exit(-1);
+            }
+            if (close(app->app_sock[1]) == -1) {
+                perror("Erro no close");
+                exit(-1);
+            }
             free(app);
             s = pthread_rwlock_unlock(&group->rwlock);
             pthread_exit(NULL);
-        } else if (n_bytes != 0) {
+        } else if (n_bytes > 0) {
             flag2 = 1;
-            send(app->app_sock[0], &flag2, sizeof(int), 0);
+            n_bytes = send(app->app_sock[0], &flag2, sizeof(int), 0);
+            if (n_bytes == -1) {
+                perror("Erro no send");
+                exit(-1);
+            }
         }
         switch (flag) {
             // put_value
             case 0:
+                flag = 1;
                 n_bytes = recv(app->app_sock[0], key, MAX_LENGTH, 0);
+                if (n_bytes == -1) {
+                    perror("Erro no recv");
+                    exit(-1);
+                }
                 n_bytes = recv(app->app_sock[0], &size, sizeof(int), 0);
+                if (n_bytes == -1) {
+                    perror("Erro no recv");
+                    exit(-1);
+                }
                 value = realloc(value, size * sizeof(char));
+                if (value == NULL) {
+                    perror("Erro no malloc");
+                    exit(-1);
+                }
                 n_bytes = recv(app->app_sock[0], value, size * sizeof(char), 0);
-                // printf("inserting pair: %s-%s\n", key, value);
+                if (n_bytes == -1) {
+                    perror("Erro no recv");
+                    exit(-1);
+                }
                 s = pthread_rwlock_wrlock(&group->rwlock);
                 if (group->active == 1) {
-                    insert_pair(group, key, value);
+                    flag = insert_pair(group, key, value);
+                    if (flag == -4) {
+                        printf("Erro de memoria no insert\n");
+                        exit(-1);
+                    }
                 }
                 s = pthread_rwlock_unlock(&group->rwlock);
-                // printf("%s-%s inserted\n", key, value);
+
+                n_bytes = send(app->app_sock[0], &flag, sizeof(int), 0);
+                if (n_bytes == -1) {
+                    perror("Erro no send");
+                    exit(-1);
+                }
                 break;
             // get_value
             case 1:
-                // printf("entrou\n");
+                flag = 1;
                 n_bytes = recv(app->app_sock[0], key, MAX_LENGTH, 0);
+                if (n_bytes == -1) {
+                    perror("Erro no recv");
+                    exit(-1);
+                }
 
                 s = pthread_rwlock_rdlock(&group->rwlock);
                 if (group->active == 1) {
@@ -269,41 +380,67 @@ void *com_thread(void *arg) {
                     if (pair != NULL) {
                         value = realloc(
                             value, (strlen(pair->value) + 1) * sizeof(char));
+                        if (value == NULL) {
+                            perror("Erro no malloc");
+                            exit(-1);
+                        }
                         strcpy(value, pair->value);
                         s = pthread_rwlock_unlock(&group->rwlock);
-                        flag = 1;
                         size = (strlen(value) + 1);
-                        send(app->app_sock[0], &flag, sizeof(int), 0);
-                        send(app->app_sock[0], &size, sizeof(int), 0);
-                        send(app->app_sock[0], value, size, 0);
+                        n_bytes = send(app->app_sock[0], &flag, sizeof(int), 0);
+                        if (n_bytes == -1) {
+                            perror("Erro no send");
+                            exit(-1);
+                        }
+                        n_bytes = send(app->app_sock[0], &size, sizeof(int), 0);
+                        if (n_bytes == -1) {
+                            perror("Erro no send");
+                            exit(-1);
+                        }
+                        n_bytes = send(app->app_sock[0], value, size, 0);
+                        if (n_bytes == -1) {
+                            perror("Erro no send");
+                            exit(-1);
+                        }
 
                     } else {
                         s = pthread_rwlock_unlock(&group->rwlock);
-                        flag = -1;
-                        send(app->app_sock[0], &flag, sizeof(int), 0);
+                        flag = -2;
+                        n_bytes = send(app->app_sock[0], &flag, sizeof(int), 0);
+                        if (n_bytes == -1) {
+                            perror("Erro no send");
+                            exit(-1);
+                        }
                     }
                 } else {
-                    flag = -2;
+                    flag = -1;
                     s = pthread_rwlock_unlock(&group->rwlock);
-                    send(app->app_sock[0], &flag, sizeof(int), 0);
+                    n_bytes = send(app->app_sock[0], &flag, sizeof(int), 0);
+                    if (n_bytes == -1) {
+                        perror("Erro no send");
+                        exit(-1);
+                    }
                 }
                 break;
             // delete_value
             case 2:
                 n_bytes = recv(app->app_sock[0], key, MAX_LENGTH, 0);
+                if (n_bytes == -1) {
+                    perror("Erro no recv");
+                    exit(-1);
+                }
                 s = pthread_rwlock_wrlock(&group->rwlock);
                 if (group->active == 1) {
-                    if (delete_pair(group, key) == 1) {
-                        flag = 1;
-
-                    } else {
-                        flag = -1;
-                    }
+                    flag = delete_pair(group, key);
                 } else {
-                    flag = -2;
+                    flag = -1;
                 }
                 s = pthread_rwlock_unlock(&group->rwlock);
-                send(app->app_sock[0], &flag, sizeof(int), 0);
+                n_bytes = send(app->app_sock[0], &flag, sizeof(int), 0);
+                if (n_bytes == -1) {
+                    perror("Erro no send");
+                    exit(-1);
+                }
                 break;
             // close_conect
             case 3:
@@ -313,39 +450,48 @@ void *com_thread(void *arg) {
                     time(&t);
                     app->t[1] = t;
                 }
-                close(app->app_sock[0]);
-                close(app->app_sock[1]);
+                if (close(app->app_sock[0]) == -1) {
+                    perror("Erro no close");
+                    exit(-1);
+                }
+                if (close(app->app_sock[1]) == -1) {
+                    perror("Erro no close");
+                    exit(-1);
+                }
                 s = pthread_rwlock_unlock(&group->rwlock);
                 pthread_exit(NULL);
-                break;
             // register_callback
             case 4:
                 n_bytes = recv(app->app_sock[0], key, MAX_LENGTH, 0);
+                if (n_bytes == -1) {
+                    perror("Erro no recv");
+                    exit(-1);
+                }
                 s = pthread_rwlock_wrlock(&group->rwlock);
                 if (group->active == 1) {
                     if (pair_search(group, key) != NULL) {
-                        add_monitor(group, key, app->pid);
-                        flag = 1;
+                        flag = add_monitor(group, key, app->pid);
                     } else {
-                        flag = -1;
+                        flag = -2;
                     }
                 } else {
-                    flag = -2;
+                    flag = -1;
                 }
                 s = pthread_rwlock_unlock(&group->rwlock);
-                send(app->app_sock[0], &flag, sizeof(int), 0);
+                n_bytes = send(app->app_sock[0], &flag, sizeof(int), 0);
+                if (n_bytes == -1) {
+                    perror("Erro no send");
+                    exit(-1);
+                }
         }
     }
 }
 
 void *accept_thread(void *arg) {
     int *server_sock = (int *)arg;
-    int n_bytes, i = 0, aux_pos, flag = 0, s;
+    int n_bytes, i = 0, flag = 0, s;
     pthread_t thread_com;
     int app_sock[2];
-    char *group_id = malloc(MAX_LENGTH * sizeof(char));
-    char *secret = malloc(MAX_LENGTH * sizeof(char));
-    char confirmation[MAX_LENGTH];
     struct sockaddr_in auth_server_addr;
     struct sockaddr_un app_addr[2];
     int app_addr_size = sizeof(app_addr[0]);
@@ -355,37 +501,65 @@ void *accept_thread(void *arg) {
     auth_server_addr.sin_port = htons(8080);
     Group *group;
     time_t t;
+    char *group_id = malloc(MAX_LENGTH * sizeof(char));
+    if (group_id == NULL) {
+        perror("Erro no malloc");
+        exit(-1);
+    }
+    char *secret = malloc(MAX_LENGTH * sizeof(char));
+    if (secret == NULL) {
+        perror("Erro no malloc");
+        exit(-1);
+    }
     char *msg = malloc(MAX_LENGTH * sizeof(char));
+    if (msg == NULL) {
+        perror("Erro no malloc");
+        exit(-1);
+    }
 
     while (1) {
         app_sock[0] = accept(server_sock[0], (struct sockaddr *)&app_addr[0],
                              &app_addr_size);
+        if (app_sock[0] == -1) {
+            perror("Erro no accept");
+            exit(-1);
+        }
 
         n_bytes = recv(app_sock[0], group_id, MAX_LENGTH, 0);
-        if (n_bytes == 0) {
-            continue;
+        if (n_bytes == -1) {
+            perror("Erro no recv");
+            exit(-1);
         }
         n_bytes = recv(app_sock[0], secret, MAX_LENGTH, 0);
-        if (n_bytes == 0) {
-            continue;
+        if (n_bytes == -1) {
+            perror("Erro no recv");
+            exit(-1);
         }
         group = find_group(group_id);
         if (group != NULL) {
             sprintf(msg, "0%c%s%c%s", '\0', group_id, '\0', secret);
             for (i = 0; i < 20; i++) {
-                sendto(server_sock[2], msg, MAX_LENGTH, 0,
-                       (const struct sockaddr *)&auth_server_addr,
-                       auth_addr_size);
+                n_bytes = sendto(server_sock[2], msg, MAX_LENGTH, 0,
+                                 (const struct sockaddr *)&auth_server_addr,
+                                 auth_addr_size);
+                if (n_bytes == -1) {
+                    perror("Erro no sendto");
+                    exit(-1);
+                }
                 usleep(500000);
                 n_bytes = recvfrom(
                     server_sock[2], &flag, sizeof(flag), MSG_DONTWAIT,
                     (struct sockaddr *)&auth_server_addr, &auth_addr_size);
-                if (n_bytes != 0) {
+                if (n_bytes == -1) {
+                    perror("Erro no recvfrom");
+                    exit(-1);
+                }
+                if (n_bytes > 0) {
                     break;
                 }
             }
             if (i == 20) {
-                flag = -3;
+                flag = -5;
             }
             if (flag == -1) {
                 printf(
@@ -396,38 +570,46 @@ void *accept_thread(void *arg) {
                 delete_group(group_id);
             }
         } else {
-            flag = -2;
+            flag = -1;
         }
-        send(app_sock[0], &flag, sizeof(int), 0);
-        if (flag != 1) {
+        n_bytes = send(app_sock[0], &flag, sizeof(int), 0);
+        if (n_bytes == -1) {
+            perror("Erro no send");
+            exit(-1);
+        }
+        if (flag != 0) {
             continue;
         }
+
         listen(server_sock[1], 2);
         app_sock[1] = accept(server_sock[1], (struct sockaddr *)&app_addr[1],
                              &app_addr_size);
-
-        // n_bytes = recv(clients[i], group_id, sizeof(group_id), 0);
-        // if authorized
+        if (app_sock[1] == -1) {
+            perror("Erro no accept");
+            exit(-1);
+        }
         s = pthread_rwlock_wrlock(&group->rwlock);
         // printf("pos:%d\n", pos);
         App *new_app = malloc(sizeof(App));
+        if (new_app == NULL) {
+            perror("Erro no malloc");
+            exit(-1);
+        }
+        new_app->conected = 1;
         new_app->app_sock[0] = app_sock[0];
         new_app->app_sock[1] = app_sock[1];
-        new_app->conected = 1;
         sscanf(app_addr[0].sun_path, "/tmp/app_socket_%d", &new_app->pid);
         new_app->next = group->apps_head;
         group->apps_head = new_app;
         time(&t);
         new_app->t[0] = t;
         s = pthread_rwlock_unlock(&group->rwlock);
+
         pthread_create(&thread_com, NULL, com_thread, group);
     }
 }
 
 int main() {
-    char *command = (char *)malloc(MAX_LENGTH * sizeof(char));
-    char *secret = (char *)malloc(MAX_LENGTH * sizeof(char));
-    char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
     int i = 0, flag, s;
     un_server_addr_size = sizeof(un_server_sock_addr[0]);
     in_server_addr_size = sizeof(in_server_sock_addr);
@@ -438,20 +620,35 @@ int main() {
     inet_aton("127.0.0.1", &auth_server_addr.sin_addr);
     auth_server_addr.sin_port = htons(8080);
     Group *group;
+    char *command = (char *)malloc(MAX_LENGTH * sizeof(char));
+    if (command == NULL) {
+        perror("Erro no malloc");
+        exit(-1);
+    }
+    char *secret = (char *)malloc(MAX_LENGTH * sizeof(char));
+    if (secret == NULL) {
+        perror("Erro no malloc");
+        exit(-1);
+    }
+    char *msg = (char *)malloc(MAX_LENGTH * sizeof(char));
+    if (msg == NULL) {
+        perror("Erro no malloc");
+        exit(-1);
+    }
 
     server_sock[0] = socket(AF_UNIX, SOCK_STREAM, 0);
     if (server_sock[0] == -1) {
-        printf("fail to create socket\n");
+        perror("Erro a criar socket");
         exit(-1);
     }
     server_sock[1] = socket(AF_UNIX, SOCK_STREAM, 0);
     if (server_sock[1] == -1) {
-        printf("fail to create socket\n");
+        perror("Erro a criar socket");
         exit(-1);
     }
     server_sock[2] = socket(AF_INET, SOCK_DGRAM, 0);
     if (server_sock[2] == -1) {
-        printf("fail to create socket\n");
+        perror("Erro a criar socket");
         exit(-1);
     }
     un_server_sock_addr[0].sun_family = AF_UNIX;
@@ -462,25 +659,15 @@ int main() {
     unlink(LOCAL_SERVER_ADDR);
     if (bind(server_sock[0], (struct sockaddr *)&un_server_sock_addr[0],
              un_server_addr_size) == -1) {
-        perror("erro1:");
+        perror("Erro no bind");
         exit(-1);
     }
     unlink(LOCAL_SERVER_ADDR_CB);
     if (bind(server_sock[1], (struct sockaddr *)&un_server_sock_addr[1],
              un_server_addr_size) == -1) {
-        perror("erro2:");
+        perror("Erro no bind");
         exit(-1);
     }
-
-    /*in_server_sock_addr.sin_family = AF_INET;
-    in_server_sock_addr.sin_addr.s_addr = INADDR_ANY;
-    in_server_sock_addr.sin_port = htons(8081);
-
-    if (bind(server_sock[1], (struct sockaddr *)&in_server_sock_addr,
-             in_server_addr_size) == -1) {
-        printf("erro no bind2\n");
-        exit(-1);
-    }*/
     char *aux;
     listen(server_sock[0], 2);
 

@@ -24,7 +24,6 @@ typedef struct App {
 typedef struct Pair {
     char* key;
     char* value;
-    pthread_rwlock_t rwlock;
     int* mon;
     int count;
     struct Pair* next;
@@ -39,10 +38,10 @@ typedef struct Group {
     struct Group* next;
 } Group;
 
-void add_new_pair(Group* group, char* key, char* value);
-void insert_pair(Group* group, char* key, char* value);
+int add_new_pair(Group* group, char* key, char* value);
+int insert_pair(Group* group, char* key, char* value);
 int get_list_size(Group* group);
 void free_pair(Pair* pair);
 Pair* pair_search(Group* group, char* key);
 int delete_pair(Group* group, char* key);
-void add_monitor(Group* group, char* key, int pid);
+int add_monitor(Group* group, char* key, int pid);

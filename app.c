@@ -37,18 +37,15 @@ int main() {
     flag = put_value("nome", "andre");
     flag = get_value("nome", &value);
     printf("nome: %s\n", value);*/
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 300; i++) {
         sprintf(key, "%d", i);
         flag = put_value(key, "teste");
-        if (flag == -1) {
-            printf("Group was deleted\n");
-            return 0;
-        }
-        usleep(400000);
+        printf("put_value %s -> flag: %d\n", key, flag);
+        usleep(300000);
     }
 
     // sleep(10);
-    flag = close_connection();
+    // flag = close_connection();
     getchar();
     return 0;
 }
