@@ -1,9 +1,8 @@
-#include "hash_tables.h"
-#include "lib.h"
+#include "ds.h"
 
 #define LOCAL_SERVER_ADDR "/tmp/local_server_address"
 #define LOCAL_SERVER_ADDR_CB "/tmp/local_server_address_cb"
-#define MAX_LENGTH 512
+
 Group *group_head = NULL;
 int server_sock[3];
 struct sockaddr_un un_server_sock_addr[2];
@@ -17,7 +16,7 @@ int auth_addr_size;
 return  1-> success
 return -1 -> group does not exist
 return -2 -> incorrect password
-return -4 -> erro de memória
+return -4 -> memory error
 */
 Group *find_group(char *group_id) {
     Group *group = group_head;
@@ -263,18 +262,10 @@ void get_status(char *group_id) {
     }
 }
 
-void close_app(App *app) {
-    if (close(app->app_sock[0]) == -1) {
-        perror("Erro no close");
-        exit(-1);
-    }
-    if (close(app->app_sock[1]) == -1) {
-        perror("Erro no close");
-        exit(-1);
-    }
-    free(app);
-}
-
+/*
+Thread that is responsible for the communication with one of the apps connected
+to this local_server
+*/
 void *com_thread(void *arg) {
     int n_bytes, k, flag = 0, flag2, i, app_sock[2], size, s;
     char *value;
@@ -487,6 +478,7 @@ void *com_thread(void *arg) {
     }
 }
 
+/*Thread that connects the local server with a new app*/
 void *accept_thread(void *arg) {
     int *server_sock = (int *)arg;
     int n_bytes, i = 0, flag = 0, s;
@@ -589,7 +581,6 @@ void *accept_thread(void *arg) {
             exit(-1);
         }
         s = pthread_rwlock_wrlock(&group->rwlock);
-        // printf("pos:%d\n", pos);
         App *new_app = malloc(sizeof(App));
         if (new_app == NULL) {
             perror("Erro no malloc");

@@ -1,15 +1,6 @@
-#include "hash_tables.h"
-
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/un.h>
-#include <unistd.h>
+#include "ds.h"
 
 int add_new_pair(Group* group, char* key, char* value) {
-    
     Pair* pair = malloc(sizeof(Pair));
     if (pair == NULL) {
         perror("Erro no malloc");
@@ -36,7 +27,7 @@ int add_new_pair(Group* group, char* key, char* value) {
 }
 
 int insert_pair(Group* group, char* key, char* value) {
-    // create a link
+    
     App* app;
     int flag = 1, n_bytes;
     Pair* pair = pair_search(group, key);
@@ -85,9 +76,9 @@ void free_pair(Pair* pair) {
     free(pair->mon);
     free(pair);
 }
-// find a link with given key
+
 Pair* pair_search(Group* group, char* key) {
-    // start from the first link
+    
     int s;
 
     Pair* pair = group->pairs_head;
@@ -98,9 +89,9 @@ Pair* pair_search(Group* group, char* key) {
         return NULL;
     }
 
-    // navigate through list
+   
     while (strcmp(pair->key, key) != 0) {
-        // if it is last node
+        
         if (pair->next == NULL) {
             return NULL;
         } else {
@@ -108,12 +99,12 @@ Pair* pair_search(Group* group, char* key) {
             pair = pair->next;
         }
     }
-    // if data found, return the current Link
+   
     return pair;
 }
-// delete a link with given key
+
 int delete_pair(Group* group, char* key) {
-    // start from the first link
+    
     Pair* pair = group->pairs_head;
     Pair* aux_pair = NULL;
 
@@ -121,9 +112,9 @@ int delete_pair(Group* group, char* key) {
         return -2;
     }
 
-    // navigate through list
+    
     while (strcmp(pair->key, key) != 0) {
-        // if it is last node
+        
         if (pair->next == NULL) {
             return -2;
         } else {
@@ -132,7 +123,7 @@ int delete_pair(Group* group, char* key) {
         }
     }
 
-    // found a match, update the link
+    
     if (pair == group->pairs_head) {
         group->pairs_head = pair->next;
     } else {
@@ -144,12 +135,15 @@ int delete_pair(Group* group, char* key) {
 }
 
 int add_monitor(Group* group, char* key, int pid) {
-    // Searches the key in the hashtable
-    // and returns NULL if it doesn't exist
     Pair* pair = pair_search(group, key);
-
-    // Ensure that we move to a non NULL item
+    int i;
     if (pair != NULL) {
+        // check if pid already exists in the mon
+        for (i = 0; i < pair->count; i++) {
+            if (pid == pair->mon[i]) {
+                return 1;
+            }
+        }
         pair->count++;
         pair->mon = realloc(pair->mon, pair->count * sizeof(int));
         if (pair->mon == NULL) {

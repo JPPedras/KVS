@@ -9,7 +9,7 @@
         "-g",
         "${file}",
         "KVS-lib.c",
-        "hash_tables.c",
+        "ds.c",
         "*.h",
         "-o",
         "${fileDirname}/${fileBasenameNoExtension}",

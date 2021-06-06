@@ -1,3 +1,5 @@
+#include "KVS-lib.h"
+
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,19 +8,55 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#include "lib.h"
-
 #define LOCAL_SERVER_ADDRESS "/tmp/local_server_address"
 #define LOCAL_SERVER_ADDRESS_CB "/tmp/local_server_address_cb"
 #define MAX_LENGTH 512
 int app_sock[2];
-int callback_activate = 0;
+
+typedef void (*Callback_function)(char* key);
+
+/*
+cb_f -> callback_function called when key is modified
+key -> key that the callback_fuction regards to
+*/
+typedef struct Callback {
+    Callback_function cb_f;
+    char* key;
+    struct Callback* next;
+} Callback;
+
+Callback* cb_head;
+int callback_active = 0;
+
+void* cb_thread(void* arg) {
+    int n_bytes = 1, flag;
+    Callback* aux;
+    char* changed_key = malloc(MAX_LENGTH * sizeof(char));
+    if (changed_key == NULL) {
+        pthread_exit(NULL);
+    }
+
+    while (n_bytes != 0) {
+        n_bytes = recv(app_sock[1], changed_key, MAX_LENGTH, 0);
+        if (n_bytes <= 0) {
+            pthread_exit(NULL);
+        }
+        aux = cb_head;
+        while (aux != NULL) {
+            if (strcmp(aux->key, changed_key) == 0) {
+                aux->cb_f(changed_key);
+            }
+            aux = aux->next;
+        }
+    }
+}
+
 /*
 return  0-> success
 return -1 -> group does not exist
 return -2 -> incorrect password
-return -3 -> erro de conexão
-return -4 -> erro de memória
+return -3 -> conection error
+return -4 -> memory error
 return -5 -> timeout
 */
 int establish_connection(char* group_id, char* secret) {
@@ -85,8 +123,8 @@ int establish_connection(char* group_id, char* secret) {
 /*
 return 1 -> success
 return -1 -> group does no longer exist
-return -3 -> erro de conexão
-return -4 -> erro de memória
+return -3 -> conection error
+return -4 -> memory error
 */
 int put_value(char* key, char* value) {
     int flag = 0, n_bytes;
@@ -126,8 +164,8 @@ int put_value(char* key, char* value) {
 return 1 -> success
 return -1 -> group does no longer exist
 return -2 -> key does not exist
-return -3 -> erro de conexão
-return -4 -> erro de memória
+return -3 -> conection error
+return -4 -> memory error
 */
 int get_value(char* key, char** value) {
     int flag = 1, n_bytes, size;
@@ -171,8 +209,8 @@ int get_value(char* key, char** value) {
 return 1 -> success
 return -1 -> group does no longer exist
 return -2 -> key does not exist
-return -3 -> erro de conexão
-return -4 -> erro de memória
+return -3 -> conection error
+return -4 -> memory error
 */
 int delete_value(char* key) {
     int flag = 2, n_bytes;
@@ -201,8 +239,8 @@ int delete_value(char* key) {
 /*
 return 1 -> success
 return -1 -> group no longer exists
-return -3 -> erro de conexão
-return -4 -> erro de memória
+return -3 -> conection error
+return -4 -> memory error
 */
 int close_connection() {
     int flag = 3, n_bytes;
@@ -221,7 +259,14 @@ int close_connection() {
     if (close(app_sock[1]) == -1) {
         return -3;
     }
-    callback_activate = 0;
+    callback_active = 0;
+    Callback* aux;
+    while (cb_head != NULL) {
+        aux = cb_head;
+        cb_head = cb_head->next;
+        free(aux->key);
+        free(aux);
+    }
     return flag;
 }
 
@@ -229,17 +274,13 @@ int close_connection() {
 return 1 -> success
 return -1 -> group no longer exists
 return -2 -> key does not exist
-return -3 -> erro de conexão
-return -4 -> erro de memória
-return -6 -> erro no fork
+return -3 -> conection error
+return -4 -> memory error
 */
 int register_callback(char* key, void (*callback_function)(char*)) {
     int flag = 4, n_bytes = 1;
     pid_t childPid;
-    char* changed_key = malloc(MAX_LENGTH * sizeof(char));
-    if (changed_key == NULL) {
-        return -4;
-    }
+    pthread_t cb_t;
 
     n_bytes = send(app_sock[0], &flag, sizeof(int), 0);
     if (n_bytes == -1) {
@@ -259,22 +300,22 @@ int register_callback(char* key, void (*callback_function)(char*)) {
     if (n_bytes == -1) {
         return -3;
     }
-    if (flag == 1 && callback_activate == 0) {
-        callback_activate = 1;
-        switch (childPid = fork()) {
-            case 0:
-                while (n_bytes != 0) {
-                    n_bytes = recv(app_sock[1], changed_key, MAX_LENGTH, 0);
-                    if (n_bytes == -1) {
-                        exit(-3);
-                    }
-                    // printf("n_bytes: %d\n", n_bytes);
-                    if (n_bytes > 0) {
-                        callback_function(changed_key);
-                    }
-                }
-            case -1:
-                return -6;
+    if (flag == 1) {
+        Callback* new_cb = malloc(sizeof(Callback));
+        if (new_cb == NULL) {
+            return -4;
+        }
+        new_cb->cb_f = callback_function;
+        new_cb->key = malloc(MAX_LENGTH * sizeof(char));
+        if (new_cb->key == NULL) {
+            return -4;
+        }
+        strcpy(new_cb->key, key);
+        new_cb->next = cb_head;
+        cb_head = new_cb;
+        if (callback_active == 0) {
+            callback_active = 1;
+            pthread_create(&cb_t, NULL, cb_thread, NULL);
         }
     }
     return flag;

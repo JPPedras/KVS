@@ -1,4 +1,4 @@
-#include "hash_tables.h"
+#include "ds.h"
 
 #define MAX_LENGTH 512
 
@@ -11,8 +11,8 @@ int main() {
     auth_server_addr.sin_family = AF_INET;
     inet_aton("127.0.0.1", &auth_server_addr.sin_addr);
     auth_server_addr.sin_port = htons(8080);
-    // auth_server_addr.sin_addr.s_addr = INADDR_ANY;
-    // printf("%s\n", inet_addr(INADDR_ANY));
+    time_t t;
+    srand(time(&t));
     char *group_id = malloc(MAX_LENGTH * sizeof(char));
     if (group_id == NULL) {
         perror("Erro no malloc");
@@ -90,10 +90,9 @@ int main() {
                 flag = 1;
                 aux = strchr(aux, '\0');
                 aux++;
-                // sprintf(secret, "%d", rand() % 100000);
+                sprintf(secret, "%d", rand() % 100000);
                 pair = pair_search(group, aux);
                 if (pair == NULL) {
-                    sprintf(secret, "%s", "password");
                     flag = insert_pair(group, aux, secret);
                     sprintf(msg, "%d%c%s", flag, '\0', secret);
                 } else {
@@ -109,7 +108,6 @@ int main() {
                 break;
             // delete group
             case 2:
-                // printf(("hey\n"));
                 aux = strchr(aux, '\0');
                 aux++;
                 pair = pair_search(group, aux);

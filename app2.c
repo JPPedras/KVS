@@ -8,46 +8,50 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "lib.h"
+#include "KVS-lib.h"
 
 #define SERVER_ADDR "/tmp/server_address"
 #define MAX_LENGTH 512
 
 void f1(char *changed_key) {
-    printf("The key with name \'%s\' was changed\n", changed_key);
+    printf("F1: The key with name \'%s\' was changed\n", changed_key);
+}
+
+void f2(char *changed_key) {
+    printf("F2: The key with name \'%s\' was changed\n", changed_key);
+}
+
+void f3(char *changed_key) {
+    printf("F3: The key with name \'%s\' was changed\n", changed_key);
 }
 
 int main() {
-    int flag = establish_connection("111", "password");
-    // printf("flag: %d\n", flag);
+    char *group_id = malloc(MAX_LENGTH * sizeof(char));
+    char *secret = malloc(MAX_LENGTH * sizeof(char));
+    printf("group_id > ");
+    fgets(group_id, MAX_LENGTH, stdin);
+    printf("secret > ");
+    fgets(secret, MAX_LENGTH, stdin);
+    group_id[strcspn(group_id, "\n")] = 0;
+    secret[strcspn(secret, "\n")] = 0;
+    int flag = establish_connection(group_id, secret);
+    printf("flag: %d\n", flag);
     char *value;
     char *key = malloc(MAX_LENGTH * sizeof(char));
 
-    /*flag = put_value("nome", "goncalo");
-    flag = register_callback("nome", f1);
-    flag = get_value("nome", &value);
-    printf("nome: %s\n", value);
-    flag = delete_value("nome");
-    flag = put_value("armagedon", "pedrassdfsfsfs");
-    flag = get_value("armagedon", &value);
-    printf("armagedon: %s\n", value);
-    flag = put_value("hellohello", "coelho");
-    flag = get_value("hellohello", &value);
-    printf("hellohello: %s\n", value);
-    flag = put_value("nome", "andre");
-    flag = get_value("nome", &value);
-    printf("nome: %s\n", value);*/
-    flag = put_value("45", "wewewe");
-    flag = register_callback("45", f1);
-    for (int i = 0; i < 300; i++) {
+    flag = register_callback("3", f3);
+    flag = register_callback("4", f2);
+    flag = register_callback("6", f2);
+    for (int i = 0; i < 20; i++) {
         sprintf(key, "%d", i);
-        flag = put_value(key, "teste");
-        if (flag == -1) {
-            printf("Group was deleted\n");
-            return 0;
-        }
-        usleep(100000);
+        flag = put_value(key, key);
+        printf("put_value %s -> flag: %d\n", key, flag);
+        usleep(50000);
     }
+    flag = register_callback("4", f1);
+    flag = register_callback("6", f1);
+
+    // flag = close_connection();
 
     getchar();
     return 0;
