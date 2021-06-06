@@ -35,15 +35,21 @@ int main() {
     char *value;
     char *key = malloc(MAX_LENGTH * sizeof(char));
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 200; i++) {
         sprintf(key, "%d", i);
-        flag = put_value(key, key);
-        printf("put_value %s -> flag: %d\n", key, flag);
-        usleep(50000);
+        flag = put_value(key, "lol");
+        // printf("put_value %s -> flag: %d\n", key, flag);
+        // usleep(50000);
     }
     flag = register_callback("3", f1);
     flag = register_callback("4", f2);
     flag = register_callback("6", f1);
+    for (int i = 0; i < 400; i++) {
+        sprintf(key, "%d", i);
+        flag = get_value(key, &value);
+        printf("get_value %s -> flag: %d\n", value, flag);
+        usleep(50000);
+    }
 
     // flag = close_connection();
 

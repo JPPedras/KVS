@@ -39,17 +39,12 @@ int main() {
     char *value;
     char *key = malloc(MAX_LENGTH * sizeof(char));
 
-    flag = register_callback("3", f3);
-    flag = register_callback("4", f2);
-    flag = register_callback("6", f2);
-    for (int i = 0; i < 20; i++) {
+    for (int i = 200; i < 400; i++) {
         sprintf(key, "%d", i);
-        flag = put_value(key, key);
-        printf("put_value %s -> flag: %d\n", key, flag);
-        usleep(50000);
+        flag = put_value(key, "sdklfdlskf");
+        // printf("put_value %s -> flag: %d\n", key, flag);
+        // usleep(50000);
     }
-    flag = register_callback("4", f1);
-    flag = register_callback("6", f1);
 
     // flag = close_connection();
 
